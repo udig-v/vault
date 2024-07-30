@@ -1674,6 +1674,9 @@ int main(int argc, char *argv[])
 			fclose(config_file); // Close the config file
 
 			// printf("hash generation and sorting...\n");
+			resetTimer(&timer);
+
+			double generating_start = getTimer(&timer);
 
 			// Open file for writing
 			fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -1682,8 +1685,6 @@ int main(int argc, char *argv[])
 				perror("Error opening file for writing");
 				return 1;
 			}
-
-			resetTimer(&timer);
 
 			// Array to hold the generated random records
 			MemoRecord record;
@@ -1754,8 +1755,6 @@ int main(int argc, char *argv[])
 			if (DEBUG)
 				printf("flushedBucketsNeeded=%d\n", flushedBucketsNeeded);
 
-			double generating_start = getTimer(&timer);
-
 			while (flushedBucketsNeeded > 0)
 			{
 				if (DEBUG)
@@ -1823,9 +1822,6 @@ int main(int argc, char *argv[])
 				i += BATCH_SIZE;
 			}
 
-			double generating_end = getTimer(&timer);
-			generating_time = generating_end - generating_start;
-
 			if (DEBUG)
 				printf("finished generating %llu hashes and wrote them to disk using %llu flushes...\n", i, totalFlushes);
 
@@ -1837,10 +1833,13 @@ int main(int argc, char *argv[])
 			free(buckets);
 
 			free(consumedArray);
+
+			double generating_end = getTimer(&timer);
+			generating_time = generating_end - generating_start;
 		}
 		else
 		{
-			printf("opening file for sorting...\n");
+			// printf("opening file for sorting...\n");
 
 			// Open file for writing
 			fd = open(FILENAME, O_RDWR | O_LARGEFILE, 0644);
@@ -1852,12 +1851,12 @@ int main(int argc, char *argv[])
 
 			resetTimer(&timer);
 		}
+		double sort_start = elapsedTime;
 
 		bool doSort = true;
 
 		elapsedTime = getTimer(&timer);
 		last_progress_update = elapsedTime;
-		double sort_start = elapsedTime;
 
 		if (DEBUG)
 			print_free_memory();
@@ -2107,8 +2106,6 @@ int main(int argc, char *argv[])
 				// 	last_progress_update = elapsedTime;
 				// }
 			}
-			double sort_end = getTimer(&timer);
-			sort_time = sort_end - sort_start;
 			// end of for loop
 
 			// Destroy the semaphore
@@ -2121,6 +2118,8 @@ int main(int argc, char *argv[])
 				free(buckets[i].records);
 			}
 			free(buckets); // Free the memory allocated for the array of buckets
+			double sort_end = getTimer(&timer);
+			sort_time = sort_end - sort_start;
 		}
 		else
 		{
@@ -2139,7 +2138,7 @@ int main(int argc, char *argv[])
 		double bytes_per_second = sizeof(MemoRecord) * NUM_ENTRIES / elapsedTime;
 
 		// printf("Completed %lld MB vault %s in %.2lf seconds : %.2f MH/s %.2f MB/s\n", FILESIZE, FILENAME, elapsedTime, hashes_per_second / 1000000.0, bytes_per_second * 1.0 / (1024 * 1024));
-		printf("%f,%f\n", generating_time, sort_time);
+		printf("%f,%f,%f\n", generating_time, sort_time, elapsedTime);
 
 		return 0;
 	}
