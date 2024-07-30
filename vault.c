@@ -906,8 +906,8 @@ void print_free_memory()
 	long long freeMemory = memInfo.freeram;
 	freeMemory *= memInfo.mem_unit;
 
-	printf("Total Memory: %lld bytes\n", totalMemory);
-	printf("Free Memory: %lld bytes\n", freeMemory);
+	// printf("Total Memory: %lld bytes\n", totalMemory);
+	// printf("Free Memory: %lld bytes\n", freeMemory);
 }
 #endif
 
@@ -952,6 +952,7 @@ int main(int argc, char *argv[])
 {
 	Timer timer;
 	double elapsedTime;
+	double generating_time, sort_time;
 
 	char *FILENAME = NULL;	// Default value
 	long long FILESIZE = 0; // Default value
@@ -983,10 +984,10 @@ int main(int argc, char *argv[])
 		{
 		case 't':
 			NUM_THREADS = atoi(optarg);
-			printf("NUM_THREADS=%d\n", NUM_THREADS);
+			// printf("NUM_THREADS=%d\n", NUM_THREADS);
 
 			BATCH_SIZE = HASHGEN_THREADS_BUFFER / NUM_THREADS;
-			printf("BATCH_SIZE=%ld\n", BATCH_SIZE);
+			// printf("BATCH_SIZE=%ld\n", BATCH_SIZE);
 
 			hashgen = true;
 
@@ -998,33 +999,31 @@ int main(int argc, char *argv[])
 			break;
 		case 'o':
 			num_threads_sort = atoi(optarg);
-			printf("num_threads_sort=%d\n", num_threads_sort);
+			// printf("num_threads_sort=%d\n", num_threads_sort);
 			break;
 		case 'y':
 			HASHGEN_THREADS_BUFFER = atoi(optarg);
-			printf("HASHGEN_THREADS_BUFFER=%d\n", HASHGEN_THREADS_BUFFER);
+			// printf("HASHGEN_THREADS_BUFFER=%d\n", HASHGEN_THREADS_BUFFER);
 			break;
 		case 'i':
 			num_threads_io = atoi(optarg);
-			printf("num_threads_io=%d\n", num_threads_io);
+			// printf("num_threads_io=%d\n", num_threads_io);
 			break;
 		case 'm':
 			memory_size = atoi(optarg);
-			printf("memory_size=%lld MB\n", memory_size);
+			// printf("memory_size=%lld MB\n", memory_size);
 			break;
 		case 'f':
 			FILENAME = optarg;
-
-			printf("FILENAME=%s\n", FILENAME);
+			// printf("FILENAME=%s\n", FILENAME);
 			break;
 		case 's':
 			FILESIZE = atoi(optarg);
-			printf("FILESIZE=%lld MB\n", FILESIZE);
-
+			// printf("FILESIZE=%lld MB\n", FILESIZE);
 			break;
 		case 'k':
 			KSIZE = atoi(optarg);
-			printf("KSIZE=%lld\n", KSIZE);
+			// printf("KSIZE=%lld\n", KSIZE);
 			break;
 		case 'p':
 			print_records = atoi(optarg);
@@ -1103,7 +1102,7 @@ int main(int argc, char *argv[])
 			{
 				HASHSORT = true;
 			}
-			printf("HASHSORT=%s\n", HASHSORT ? "true" : "false");
+			// printf("HASHSORT=%s\n", HASHSORT ? "true" : "false");
 			break;
 		case 'd':
 			if (strcmp(optarg, "true") == 0)
@@ -1176,12 +1175,12 @@ int main(int argc, char *argv[])
 		if (DEBUG)
 			printf("Free disk space on %s: %llu bytes\n", path, bytes_free);
 	}
-	printf("bytes_free=%lld\n", bytes_free);
+	// printf("bytes_free=%lld\n", bytes_free);
 
 	if (FILESIZE == 0 && KSIZE >= 20)
 	{
 		FILESIZE = pow(2, KSIZE - 20) * RECORD_SIZE;
-		printf("***FILESIZE=%lld\n", FILESIZE);
+		// printf("***FILESIZE=%lld\n", FILESIZE);
 	}
 	else if (FILESIZE == 0 && KSIZE < 20)
 	{
@@ -1199,12 +1198,12 @@ int main(int argc, char *argv[])
 	// memory and file sizes must be divisible
 	int ratio = (int)ceil((double)FILESIZE / memory_size);
 	int num_times_ran = 0;
-	printf("ratio=%d\n", ratio);
+	// printf("ratio=%d\n", ratio);
 	long long FILESIZE_byte = FILESIZE * 1024 * 1024;
 	long long memory_size_byte = FILESIZE * 1024 * 1024 / ratio;
 
-	printf("memory_size_byte=%lld\n", memory_size_byte);
-	printf("FILESIZE_byte=%lld\n", FILESIZE_byte);
+	// printf("memory_size_byte=%lld\n", memory_size_byte);
+	// printf("FILESIZE_byte=%lld\n", FILESIZE_byte);
 
 	if (hashgen)
 	{
@@ -1304,15 +1303,15 @@ int main(int argc, char *argv[])
 	print_free_memory();
 
 	long long MEMORY_MAX = memory_size_byte;
-	printf("MEMORY_MAX=%lld\n", MEMORY_MAX);
-	printf("RECORD_SIZE=%d\n", RECORD_SIZE);
-	printf("HASH_SIZE=%d\n", RECORD_SIZE - NONCE_SIZE);
-	printf("NONCE_SIZE=%d\n", NONCE_SIZE);
+	// printf("MEMORY_MAX=%lld\n", MEMORY_MAX);
+	// printf("RECORD_SIZE=%d\n", RECORD_SIZE);
+	// printf("HASH_SIZE=%d\n", RECORD_SIZE - NONCE_SIZE);
+	// printf("NONCE_SIZE=%d\n", NONCE_SIZE);
 
 	num_threads_io = min(num_threads_sort, num_threads_io);
-	printf("num_threads_hash=%d\n", NUM_THREADS);
-	printf("num_threads_sort=%d\n", num_threads_sort);
-	printf("num_threads_io=%d\n", num_threads_io);
+	// printf("num_threads_hash=%d\n", NUM_THREADS);
+	// printf("num_threads_sort=%d\n", num_threads_sort);
+	// printf("num_threads_io=%d\n", num_threads_io);
 
 	if (verify_records)
 	{
@@ -1657,7 +1656,7 @@ int main(int argc, char *argv[])
 			strcat(FILENAME_CONFIG, FILENAME);
 			strcat(FILENAME_CONFIG, EXTENSION);
 
-			printf("storing vault configuration in %s\n", FILENAME_CONFIG);
+			// printf("storing vault configuration in %s\n", FILENAME_CONFIG);
 			FILE *config_file = fopen(FILENAME_CONFIG, "w"); // Open or create the config file for writing
 
 			if (config_file == NULL)
@@ -1674,7 +1673,7 @@ int main(int argc, char *argv[])
 
 			fclose(config_file); // Close the config file
 
-			printf("hash generation and sorting...\n");
+			// printf("hash generation and sorting...\n");
 
 			// Open file for writing
 			fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -1716,16 +1715,16 @@ int main(int argc, char *argv[])
 				buckets[i].flush = 0; // Initialize flush for each bucket
 			}
 
-			printf("initializing circular array...\n");
+			// printf("initializing circular array...\n");
 			// Initialize the circular array
 			struct CircularArray circularArray;
 			initCircularArray(&circularArray);
 
-			printf("Create thread data structure...\n");
+			// printf("Create thread data structure...\n");
 			// Create thread data structure
 			struct ThreadData threadData[NUM_THREADS];
 
-			printf("Create hash generation threads...\n");
+			// printf("Create hash generation threads...\n");
 			// Create threads
 			pthread_t threads[NUM_THREADS];
 			for (int i = 0; i < NUM_THREADS; i++)
@@ -1734,7 +1733,7 @@ int main(int argc, char *argv[])
 				threadData[i].threadID = i;
 				pthread_create(&threads[i], NULL, arrayGenerationThread, &threadData[i]);
 			}
-			printf("Hash generation threads created...\n");
+			// printf("Hash generation threads created...\n");
 
 			unsigned long long totalFlushes = 0;
 
@@ -1755,9 +1754,10 @@ int main(int argc, char *argv[])
 			if (DEBUG)
 				printf("flushedBucketsNeeded=%d\n", flushedBucketsNeeded);
 
+			double generating_start = getTimer(&timer);
+
 			while (flushedBucketsNeeded > 0)
 			{
-
 				if (DEBUG)
 					printf("removeBatch()...\n");
 				removeBatch(&circularArray, consumedArray);
@@ -1805,23 +1805,26 @@ int main(int argc, char *argv[])
 					}
 				}
 
-				elapsedTime = getTimer(&timer);
+				// elapsedTime = getTimer(&timer);
 
-				if (elapsedTime > last_progress_update + 1.0)
-				{
-					double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
-					last_progress_update = elapsedTime;
+				// if (elapsedTime > last_progress_update + 1.0)
+				// {
+				// 	double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
+				// 	last_progress_update = elapsedTime;
 
-					// Calculate and print estimated completion time
-					double progress = min(i * 100.0 / NUM_ENTRIES, 100.0);
-					double remaining_time = elapsedTime / (progress / 100.0) - elapsedTime;
+				// 	// Calculate and print estimated completion time
+				// 	double progress = min(i * 100.0 / NUM_ENTRIES, 100.0);
+				// 	double remaining_time = elapsedTime / (progress / 100.0) - elapsedTime;
 
-					printf("[%.0lf][HASHGEN]: %.2lf%% completed, ETA %.1lf seconds, %llu/%llu flushes, %.1lf MB/sec\n", floor(elapsedTime), progress, remaining_time, totalFlushes, EXPECTED_TOTAL_FLUSHES, ((i - last_progress_i) / elapsed_time_since_last_progress_update) * (8.0 + 8.0) / (1024 * 1024));
+				// 	// printf("[%.0lf][HASHGEN]: %.2lf%% completed, ETA %.1lf seconds, %llu/%llu flushes, %.1lf MB/sec\n", floor(elapsedTime), progress, remaining_time, totalFlushes, EXPECTED_TOTAL_FLUSHES, ((i - last_progress_i) / elapsed_time_since_last_progress_update) * (8.0 + 8.0) / (1024 * 1024));
 
-					last_progress_i = i;
-				}
+				// 	last_progress_i = i;
+				// }
 				i += BATCH_SIZE;
 			}
+
+			double generating_end = getTimer(&timer);
+			generating_time = generating_end - generating_start;
 
 			if (DEBUG)
 				printf("finished generating %llu hashes and wrote them to disk using %llu flushes...\n", i, totalFlushes);
@@ -1869,6 +1872,7 @@ int main(int argc, char *argv[])
 
 		if (FLUSH_SIZE > 1 && doSort && HASHSORT)
 		{
+			// printf("external sort started, expecting %llu flushes for %d buckets...\n", FLUSH_SIZE, NUM_BUCKETS);
 			int EXPECTED_BUCKETS_SORTED = NUM_BUCKETS;
 			if (DEBUG)
 				printf("external sort started, expecting %llu flushes for %d buckets...\n", FLUSH_SIZE, NUM_BUCKETS);
@@ -1882,7 +1886,6 @@ int main(int argc, char *argv[])
 			}
 
 			// Allocate memory for num_threads_sort bucket
-			// Bucket bucket;
 			if (DEBUG)
 				printf("trying to allocate 1: %lu bytes memory...\n", num_threads_sort * sizeof(Bucket));
 			Bucket *buckets = malloc(num_threads_sort * sizeof(Bucket));
@@ -2081,29 +2084,31 @@ int main(int argc, char *argv[])
 					}
 				}
 
-				elapsedTime = getTimer(&timer);
+				// elapsedTime = getTimer(&timer);
 
-				if (elapsedTime > last_progress_update + 1)
-				{
-					double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
+				// if (elapsedTime > last_progress_update + 1)
+				// {
+				// 	double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
 
-					int totalBucketsSorted = i;
-					float perc_done = totalBucketsSorted * 100.0 / EXPECTED_BUCKETS_SORTED;
-					float eta = (elapsedTime - sort_start) / (perc_done / 100.0) - (elapsedTime - sort_start);
-					float diskSize = FILESIZE_byte / (1024 * 1024);
-					float throughput_MB = diskSize * perc_done * 1.0 / 100.0 / (elapsedTime - sort_start);
-					float throughput_MB_latest = (((i - last_progress_i) * BUCKET_SIZE * sizeof(MemoRecord) * 1.0) / (elapsedTime - last_progress_update)) / (1024 * 1024);
-					if (DEBUG)
-						printf("%llu %llu %d %llu %lu %f %f\n", i, last_progress_i, BUCKET_SIZE, FLUSH_SIZE, sizeof(MemoRecord), elapsedTime, last_progress_update);
-					float progress = perc_done;
-					float remaining_time = eta;
-					printf("[%.0lf][SORT]: %.2lf%% completed, ETA %.1lf seconds, %llu/%d flushes, %.1lf MB/sec\n", elapsedTime, progress, remaining_time, i, NUM_BUCKETS, throughput_MB_latest);
+				// 	int totalBucketsSorted = i;
+				// 	float perc_done = totalBucketsSorted * 100.0 / EXPECTED_BUCKETS_SORTED;
+				// 	float eta = (elapsedTime - sort_start) / (perc_done / 100.0) - (elapsedTime - sort_start);
+				// 	float diskSize = FILESIZE_byte / (1024 * 1024);
+				// 	float throughput_MB = diskSize * perc_done * 1.0 / 100.0 / (elapsedTime - sort_start);
+				// 	float throughput_MB_latest = (((i - last_progress_i) * BUCKET_SIZE * sizeof(MemoRecord) * 1.0) / (elapsedTime - last_progress_update)) / (1024 * 1024);
+				// 	if (DEBUG)
+				// 		printf("%llu %llu %d %llu %lu %f %f\n", i, last_progress_i, BUCKET_SIZE, FLUSH_SIZE, sizeof(MemoRecord), elapsedTime, last_progress_update);
+				// 	float progress = perc_done;
+				// 	float remaining_time = eta;
+				// 	printf("[%.0lf][SORT]: %.2lf%% completed, ETA %.1lf seconds, %llu/%d flushes, %.1lf MB/sec\n", elapsedTime, progress, remaining_time, i, NUM_BUCKETS, throughput_MB_latest);
 
-					last_progress_i = i;
+				// 	last_progress_i = i;
 
-					last_progress_update = elapsedTime;
-				}
+				// 	last_progress_update = elapsedTime;
+				// }
 			}
+			double sort_end = getTimer(&timer);
+			sort_time = sort_end - sort_start;
 			// end of for loop
 
 			// Destroy the semaphore
@@ -2119,8 +2124,8 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			if (HASHSORT == true)
-				printf("in-memory sort completed!\n");
+			// if (HASHSORT == true)
+			// 	printf("in-memory sort completed!\n");
 		}
 
 		close(fd);
@@ -2133,7 +2138,8 @@ int main(int argc, char *argv[])
 		// Calculate bytes per second
 		double bytes_per_second = sizeof(MemoRecord) * NUM_ENTRIES / elapsedTime;
 
-		printf("Completed %lld MB vault %s in %.2lf seconds : %.2f MH/s %.2f MB/s\n", FILESIZE, FILENAME, elapsedTime, hashes_per_second / 1000000.0, bytes_per_second * 1.0 / (1024 * 1024));
+		// printf("Completed %lld MB vault %s in %.2lf seconds : %.2f MH/s %.2f MB/s\n", FILESIZE, FILENAME, elapsedTime, hashes_per_second / 1000000.0, bytes_per_second * 1.0 / (1024 * 1024));
+		printf("%f,%f\n", generating_time, sort_time);
 
 		return 0;
 	}
