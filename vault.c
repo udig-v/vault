@@ -1206,39 +1206,38 @@ int main(int argc, char *argv[])
 	printf("memory_size_byte=%lld\n", memory_size_byte);
 	printf("FILESIZE_byte=%lld\n", FILESIZE_byte);
 
-
 	if (hashgen)
 	{
 		for (WRITE_SIZE = 1024 * 1024 / ratio; WRITE_SIZE > 0; WRITE_SIZE = WRITE_SIZE / 2)
 		{
 			num_times_ran += 1;
 			FLUSH_SIZE = ratio;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 1: %llu\n", FLUSH_SIZE);
 			BUCKET_SIZE = (long long)WRITE_SIZE * 1024 * FLUSH_SIZE;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 2: %d\n", BUCKET_SIZE);
 			NUM_BUCKETS = (long long)FILESIZE_byte / BUCKET_SIZE;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 3: %d\n", NUM_BUCKETS);
 			PREFIX_SIZE = (unsigned int)(log(NUM_BUCKETS) / log(2)) + 1;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 4: %d\n", PREFIX_SIZE);
 			NUM_BUCKETS = pow(2, PREFIX_SIZE);
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 5: %d\n", NUM_BUCKETS);
 			PREFIX_SIZE = (unsigned int)(log(NUM_BUCKETS) / log(2));
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 6: %d\n", PREFIX_SIZE);
 			BUCKET_SIZE = (long long)FILESIZE_byte / NUM_BUCKETS;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 7: %d\n", BUCKET_SIZE);
 
 			EXPECTED_TOTAL_FLUSHES = (long long)FILESIZE_byte / (WRITE_SIZE);
 			if (DEBUG)
 				printf("for(): 8\n");
 			sort_memory = (long long)BUCKET_SIZE * num_threads_sort;
-			// if (DEBUG)
+			if (DEBUG)
 				printf("for(): 9: %d\n", sort_memory);
 
 			// valid configuration
@@ -1273,20 +1272,20 @@ int main(int argc, char *argv[])
 				if (DEBUG)
 					printf("for(): 18\n");
 
-				printf("-------------------------\n");
-				printf("number of times while loop ran: %d\n", num_times_ran);
-				printf("found good configuration:\n");
-				printf("memory_size_byte=%lld\n", memory_size_byte);
-				printf("FILESIZE_byte=%lld\n", FILESIZE_byte);
-				printf("WRITE_SIZE=%lld\n", WRITE_SIZE);
-				printf("FLUSH_SIZE=%llu\n", FLUSH_SIZE);
-				printf("BUCKET_SIZE=%d\n", BUCKET_SIZE);
-				printf("NUM_BUCKETS=%d\n", NUM_BUCKETS);
-				printf("PREFIX_SIZE=%d\n", PREFIX_SIZE);
-				printf("EXPECTED_TOTAL_FLUSHES=%lld\n", EXPECTED_TOTAL_FLUSHES);
-				printf("sort_memory=%lld\n", sort_memory);
-				printf("NUM_ENTRIES=%lld\n", NUM_ENTRIES);
-				printf("-------------------------\n");
+				// printf("-------------------------\n");
+				// printf("number of times while loop ran: %d\n", num_times_ran);
+				// printf("found good configuration:\n");
+				// printf("memory_size_byte=%lld\n", memory_size_byte);
+				// printf("FILESIZE_byte=%lld\n", FILESIZE_byte);
+				// printf("WRITE_SIZE=%lld\n", WRITE_SIZE);
+				// printf("FLUSH_SIZE=%llu\n", FLUSH_SIZE);
+				// printf("BUCKET_SIZE=%d\n", BUCKET_SIZE);
+				// printf("NUM_BUCKETS=%d\n", NUM_BUCKETS);
+				// printf("PREFIX_SIZE=%d\n", PREFIX_SIZE);
+				// printf("EXPECTED_TOTAL_FLUSHES=%lld\n", EXPECTED_TOTAL_FLUSHES);
+				// printf("sort_memory=%lld\n", sort_memory);
+				// printf("NUM_ENTRIES=%lld\n", NUM_ENTRIES);
+				// printf("-------------------------\n");
 
 				found_good_config = true;
 				break;

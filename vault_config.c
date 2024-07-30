@@ -3,9 +3,6 @@
 #include "parallel_mergesort.c"
 
 
-
-
-
 /*
 bool isLittleEndian() {
     // Create a union with an integer and an array of bytes
