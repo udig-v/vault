@@ -180,15 +180,11 @@ void generateBlake3(MemoRecord *record, unsigned long long seed)
 {
 	// Store seed into the nonce
 	memcpy(record->nonce, &seed, sizeof(record->nonce));
-	// for (int i = 0; i < sizeof(record->nonce); ++i) {
-	//     record->nonce[i] = (seed >> (i * 8)) & 0xFF;
-	//     }
 
 	// Generate random bytes
 	blake3_hasher hasher;
 	blake3_hasher_init(&hasher);
 	blake3_hasher_update(&hasher, &record->nonce, sizeof(record->nonce));
-	// blake3_hasher_update(&hasher, &seed, sizeof(seed));
 	blake3_hasher_finalize(&hasher, record->hash, RECORD_SIZE - NONCE_SIZE);
 }
 
@@ -553,13 +549,6 @@ void remove_file(const char *fileName)
 // Function to write a bucket of random records to disk
 void writeBucketToDisk(const Bucket *bucket, int fd, off_t offset)
 {
-
-	// bool buffered = false;
-
-	// struct iovec iov[1];
-	//     iov[0].iov_base = bucket->records;
-	//     iov[0].iov_len = sizeof(MemoRecord) * bucket->count;
-
 	if (DEBUG)
 		printf("writeBucketToDisk(): %lld %lu %d %lld %zu\n", offset, sizeof(MemoRecord), BUCKET_SIZE, WRITE_SIZE, bucket->flush);
 	if (DEBUG)
@@ -570,18 +559,6 @@ void writeBucketToDisk(const Bucket *bucket, int fd, off_t offset)
 		close(fd);
 		exit(EXIT_FAILURE);
 	}
-
-	// Write the entire bucket to the file
-	//    ssize_t bytes_written = writev(fd, iov, 1);
-	//    if (bytes_written < 0) {
-	//        perror("Error writing to file");
-	//        close(fd);
-	//        exit(EXIT_FAILURE);
-	//    } else if (bytes_written != sizeof(MemoRecord) * bucket->count) {
-	//        fprintf(stderr, "Incomplete write to file\n");
-	//        close(fd);
-	//        exit(EXIT_FAILURE);
-	//    }
 
 	unsigned long long bytesWritten = write(fd, bucket->records, sizeof(MemoRecord) * bucket->count);
 	if (bytesWritten < 0)
@@ -595,95 +572,12 @@ void writeBucketToDisk(const Bucket *bucket, int fd, off_t offset)
 		printf("writeBucketToDisk(): bytesWritten=%lld %lu\n", bytesWritten, sizeof(MemoRecord) * bucket->count);
 }
 
-// off_t getBucketIndex(const uint8_t *hash) {
-//     // Calculate the bucket index based on the first 2-byte prefix
-//     return (hash[0] << 8) | hash[1];
-// }
-
-/*
-off_t byteArrayToUnsignedLongLongBigEndian(const uint8_t *byteArray, size_t bits) {
-	off_t result = 0;
-
-	// Calculate the number of bytes to process (up to 8 bytes)
-	//size_t numBytes = size < sizeof(uint64_t) ? size : sizeof(uint64_t);
-
-	// Calculate the number of bytes to process (up to 8 bytes)
-	size_t numBytes = (bits + 7) / 8;
-	size_t max_value = pow(2, bits);
-
-	// Combine the bytes into the resulting unsigned long long integer
-	for (size_t i = 0; i < numBytes; ++i) {
-		result |= ((off_t)byteArray[i]) << (i * 8);
-	}
-
-	return result%max_value;
-}
-
-off_t byteArrayToUnsignedLongLongLittleEndian(const uint8_t *byteArray, size_t bits) {
-	off_t result = 0;
-
-	// Calculate the number of bytes to process (up to 8 bytes)
-	size_t numBytes = (bits + 7) / 8;
-	size_t max_value = pow(2, bits);
-
-	// Combine the bytes into the resulting unsigned long long integer in little-endian format
-	for (size_t i = 0; i < numBytes; ++i) {
-		result |= ((off_t)byteArray[i]) << (i * 8);
-	}
-
-	return result%max_value;
-}
-*/
-/*
-uint64_t byteArrayToUnsignedLongLongBigEndian(uint8_t byteArray[]) {
-	uint64_t result = 0;
-
-	result |= ((uint64_t)byteArray[0]) << 56;
-	result |= ((uint64_t)byteArray[1]) << 48;
-	result |= ((uint64_t)byteArray[2]) << 40;
-	result |= ((uint64_t)byteArray[3]) << 32;
-	result |= ((uint64_t)byteArray[4]) << 24;
-	result |= ((uint64_t)byteArray[5]) << 16;
-	result |= ((uint64_t)byteArray[6]) << 8;
-	result |= byteArray[7];
-
-	return result;
-}
-
-uint64_t byteArrayToUnsignedLongLongLittleEndian(uint8_t byteArray[]) {
-	uint64_t result = 0;
-
-	result |= ((uint64_t)byteArray[0]) << 0;
-	result |= ((uint64_t)byteArray[1]) << 8;
-	result |= ((uint64_t)byteArray[2]) << 16;
-	result |= ((uint64_t)byteArray[3]) << 24;
-	result |= ((uint64_t)byteArray[4]) << 32;
-	result |= ((uint64_t)byteArray[5]) << 40;
-	result |= ((uint64_t)byteArray[6]) << 48;
-	result |= ((uint64_t)byteArray[7]) << 56;
-
-	return result;
-}
-
-uint32_t byteArrayToUnsignedIntLittleEndian(uint8_t byteArray[]) {
-	uint32_t result = 0;
-
-	result |= ((uint32_t)byteArray[3]) << 24;
-	result |= ((uint32_t)byteArray[2]) << 16;
-	result |= ((uint32_t)byteArray[1]) << 8;
-	result |= byteArray[0];
-
-	return result;
-}
-*/
-
 void printBytes(const uint8_t *bytes, size_t length)
 {
 	for (size_t i = 0; i < length; i++)
 	{
 		printf("%02x", bytes[i]);
 	}
-	// printf("\n");
 }
 
 void print_binary(const uint8_t *byte_array, size_t array_size, int b)
@@ -734,25 +628,6 @@ off_t byteArrayToUnsignedIntBigEndian(const uint8_t *byteArray, int b)
 	return result;
 }
 
-/*off_t byteArrayToUnsignedIntLittleEndian(const uint8_t *byteArray, int b) {
-	off_t result = 0;
-
-	size_t byteIndex = b / 8; // Determine the byte index
-	size_t bitOffset = b % 8; // Determine the bit offset within the byte
-
-	// Extract the bits from the byte array in little-endian format
-	for (size_t i = 0; i < byteIndex; ++i) {
-		result |= (uint32_t)byteArray[i] << (i * 8);
-	}
-
-	// Extract the remaining bits
-	if (bitOffset > 0) {
-		result |= (uint32_t)(byteArray[byteIndex] >> bitOffset);
-	}
-
-	return result;
-}*/
-
 off_t binaryByteArrayToULL(const uint8_t *byteArray, size_t array_size, int b)
 {
 	if (DEBUG)
@@ -775,15 +650,7 @@ off_t binaryByteArrayToULL(const uint8_t *byteArray, size_t array_size, int b)
 
 off_t getBucketIndex(const uint8_t *byteArray, int b)
 {
-	// printf("getBucketIndex(): ");
-	// printBytes(byteArray,HASH_SIZE);
-
 	off_t result = 0;
-	// littleEndian = false;
-	// if (littleEndian)
-	//	result = byteArrayToUnsignedIntLittleEndian(byteArray,b);
-	// else
-	// result = byteArrayToUnsignedIntBigEndian(byteArray,b);
 	result = binaryByteArrayToULL(byteArray, HASH_SIZE, b);
 	if (DEBUG)
 		printf("getBucketIndex(): %lld %d\n", result, b);
@@ -794,10 +661,6 @@ off_t getBucketIndex(const uint8_t *byteArray, int b)
 
 off_t getBucketIndex_old(const uint8_t *hash, int num_bits)
 {
-
-	// printf("getBucketIndex(): ");
-	// printBytes(hash,HASH_SIZE);
-
 	off_t index = 0;
 	int shift_bits = 0;
 
@@ -813,7 +676,6 @@ off_t getBucketIndex_old(const uint8_t *hash, int num_bits)
 	{
 		index |= ((off_t)hash[num_bits / 8] & ((1 << (num_bits % 8)) - 1)) << shift_bits;
 	}
-	// printf(" : %lld\n",index);
 	return index;
 }
 
@@ -1213,10 +1075,8 @@ int verifySorted(char *buffer, size_t bytesRead)
 	int i;
 	for (i = RECORD_SIZE; i < bytesRead; i += RECORD_SIZE)
 	{
-		// printf("%d %d\n",i,i - RECORD_SIZE);
 		if (memcmp(buffer + i - RECORD_SIZE, buffer + i, HASH_SIZE) > 0)
 		{
-
 			printf("verifySorted failed: ");
 			printBytes((uint8_t *)(buffer + i - RECORD_SIZE), HASH_SIZE);
 			printf(" !< ");
@@ -1227,6 +1087,46 @@ int verifySorted(char *buffer, size_t bytesRead)
 		}
 	}
 	return 1; // Records are sorted
+}
+
+// Function to verify if the final compressed file is sorted
+int verifySortedCompressed(const char *file_path)
+{
+	FILE *file = fopen(file_path, "rb");
+	if (!file)
+	{
+		perror("Error opening file for reading");
+		return 0;
+	}
+
+	MemoRecord currentRecord, previousRecord;
+	unsigned long long seed;
+	bool firstRecord = true;
+
+	// Read each record (nonce) from the file and regenerate the hash
+	while (fread(&seed, sizeof(seed), 1, file) == 1)
+	{
+		// Regenerate the hash using the seed
+		generateBlake3(&currentRecord, seed);
+
+		if (!firstRecord)
+		{
+			// Compare current hash with the previous hash
+			if (memcmp(previousRecord.hash, currentRecord.hash, RECORD_SIZE - NONCE_SIZE) > 0)
+			{
+				// If the current hash is smaller, the hashes are not sorted
+				fclose(file);
+				return 0;
+			}
+		}
+
+		// Store the current record as the previous one for the next iteration
+		previousRecord = currentRecord;
+		firstRecord = false;
+	}
+
+	fclose(file);
+	return 1; // All hashes are sorted
 }
 
 void printUsage()
@@ -1260,6 +1160,7 @@ void printHelp()
 	printf("  -z <bool> turns sort on with true, off with false; default is on \n");
 	printf("  -b <num_records>: verify hashes as correct BLAKE3 hashes \n");
 	printf("  -v <bool> verify hashes from file, off with false, on with true; default is off \n");
+	printf("  -V <bool> verify compressed hashes from file, off with false, on with true; default is off \n");
 	printf("  -w <bool>: benchmark; default is off\n");
 	printf("  -h: Display this help message\n");
 }
@@ -1278,30 +1179,12 @@ void *sort_bucket(void *arg)
 	unsigned long long offset = args->offset;
 	int threadID = args->threadID;
 
-	// Read bucket and store it in the array of buckets
-	// For demonstration purposes, let's just set a dummy value in the records array
-	// buckets[thread_id].records = malloc(BUCKET_SIZE * sizeof(MemoRecord));
-	// if (buckets[thread_id].records == NULL) {
-	//    perror("Memory allocation failed");
-	//    pthread_exit(NULL);
-	//}
-
-	// buckets[thread_id].count = BUCKET_SIZE;
-	// buckets[thread_id].flush = 0;
-
 	// You can perform your actual reading logic here
 	for (int b = 0; b < num_buckets_to_process; ++b)
 	{
 		if (b == threadID)
 		{
-			// if (HASHSORT)
 			qsort(buckets[b].records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords);
-			// heapsort(buckets[b].records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords);
-			//  Sort the bucket contents
-			// parallel_quicksort(bucket.records, BUCKET_SIZE*FLUSH_SIZE);
-			// parallel_merge_sort(bucket.records, BUCKET_SIZE*FLUSH_SIZE);
-			// parallel_sort(bucket.records, BUCKET_SIZE*FLUSH_SIZE, sizeof(MemoRecord), compareMemoRecords, NUM_THREADS, PARTITION_SIZE, QSORT_SIZE, DEBUG);
-			// tbb::parallel_sort(bucket.records, bucket.records + BUCKET_SIZE*FLUSH_SIZE*sizeof(MemoRecord), compare);
 
 			if (DEBUG)
 			{
@@ -1336,13 +1219,9 @@ void *read_bucket(void *arg)
 		{
 			if (DEBUG)
 				printf("reading bucket %d at offset %llu\n", b, offset);
-			// Get the value of the semaphore
-			// sem_getvalue(&semaphore, &sem_value);
-			// printf("Semaphore value: %d\n", sem_value);
 			// Wait on the semaphore
 			if (DEBUG)
 				printf("sem_wait(%d): wait\n", b);
-			// sem_wait(semaphore_io);
 			semaphore_wait(&semaphore_io);
 			if (DEBUG)
 				printf("sem_wait(%d): found\n", b);
@@ -1363,60 +1242,15 @@ void *read_bucket(void *arg)
 			// Release the semaphore
 			if (DEBUG)
 				printf("sem_post(%d): wait\n", b);
-			// sem_post(semaphore_io);
 			semaphore_post(&semaphore_io);
 			if (DEBUG)
 				printf("sem_post(%d): found\n", b);
-
-			// if (DEBUG)
-			//	printf("[SORT] lseek to read bucket %d, offset %lld\n",b, offset);
-
-			// if (lseek(fd, offset, SEEK_SET) < 0)
-			//{
-			//	printf("main(): Error seeking in file at offset %llu for bucket %d\n",offset,b);
-			//	close(fd);
-			//	*return_value = 1;
-			//	pthread_exit((void *)return_value);
-			// }
-
-			// Read the bucket into memory
-
-			// bytesRead = read(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord));
 		}
 	}
-
-	// pthread_exit(NULL);
 
 	*return_value = 0;
 	pthread_exit((void *)return_value);
 }
-
-/*
-				for (int b = 0;b<num_threads_sort;b++)
-				{
-					if (DEBUG)
-						printf("[SORT] lseek to read bucket %lld, offset %lld\n",i+b, (i+b) * sizeof(MemoRecord) * BUCKET_SIZE);
-					if (lseek(fd, (i+b) * sizeof(MemoRecord) * BUCKET_SIZE, SEEK_SET) < 0)
-					{
-						printf("main(): Error seeking in file at offset %llu for bucket %llu\n",(i+b) * sizeof(MemoRecord) * BUCKET_SIZE,i+b);
-						close(fd);
-						return 1;
-					}
-
-					// Read the bucket into memory
-					long long bytesRead = 0;
-					bytesRead = read(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord));
-					if (bytesRead < 0 || bytesRead != BUCKET_SIZE * sizeof(MemoRecord))
-					{
-						printf("Error reading bucket %llu from file; bytes read %llu when it expected %lu\n",i+b,bytesRead,BUCKET_SIZE * sizeof(MemoRecord));
-						close(fd);
-						return 1;
-					}
-					if (DEBUG)
-						printf("[SORT] read %lld bytes, expecting %lu bytes\n",bytesRead, BUCKET_SIZE * sizeof(MemoRecord));
-
-				}
-				*/
 
 void *write_bucket(void *arg)
 {
@@ -1435,7 +1269,6 @@ void *write_bucket(void *arg)
 		{
 			// Wait on the semaphore
 			semaphore_wait(&semaphore_io);
-			// sem_wait(semaphore_io);
 			if (DEBUG)
 				printf("writing bucket %d at offset %llu\n", b, offset);
 			// printf("sleeping for 1 second to slow things down for debugging...\n");
@@ -1455,42 +1288,12 @@ void *write_bucket(void *arg)
 
 			// Release the semaphore
 			semaphore_post(&semaphore_io);
-			// sem_post(semaphore_io);
 		}
 	}
 
 	*return_value = 0;
 	pthread_exit((void *)return_value);
 }
-/*
-				for (int b = 0;b<num_threads_sort;b++)
-				{
-
-
-					if (DEBUG)
-						printf("[SORT] lseek to write bucket %lld, offset %lld\n",i+b, (i+b) * sizeof(MemoRecord) * BUCKET_SIZE);
-
-					// Write the sorted bucket back to the file
-					if (lseek(fd, (i+b) * sizeof(MemoRecord) * BUCKET_SIZE, SEEK_SET) < 0)
-					{
-						printf("main2(): Error seeking in file at offset %llu for bucket %llu\n",(i+b) * sizeof(MemoRecord) * BUCKET_SIZE,i+b);
-						close(fd);
-						return 1;
-					}
-
-					unsigned long long bytesWritten = write(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord));
-					if (bytesWritten < 0)
-					{
-						printf("Error writing bucket %llu to file; bytes written %llu when it expected %lu\n",i+b,bytesWritten,BUCKET_SIZE * sizeof(MemoRecord));
-						close(fd);
-						return 1;
-					}
-
-					if (DEBUG)
-						printf("[SORT] write %lld bytes, expecting %lu bytes\n",bytesWritten, BUCKET_SIZE * sizeof(MemoRecord));
-
-				}
-*/
 
 #ifdef __linux__
 void print_free_memory()
@@ -1551,19 +1354,12 @@ void print_free_memory()
 
 int main(int argc, char *argv[])
 {
-	// assumes both values are set to false initially
-	// littleEndian = isLittleEndian();
-	// littleEndian = false;
-	// printf("littleEndian=%s\n",littleEndian ? "true" : "false");
-
 	Timer timer;
 	double elapsedTime;
 	double elapsedTimeHashGen;
 	double elapsedTimeSort;
 	double elapsedTimeSync;
 	double elapsedTimeCompress;
-
-	// struct timeval start_all_walltime, end_all_walltime;
 
 	char *FILENAME = NULL;		 // Default value
 	char *FILENAME_FINAL = NULL; // Default value
@@ -1583,7 +1379,7 @@ int main(int argc, char *argv[])
 	bool head = false;
 	bool tail = false;
 
-	bool verify_records = false;
+	bool verify_records = false, verify_compressed_records = false;
 	bool benchmark = false;
 
 	int verify_records_num = 0;
@@ -1591,7 +1387,7 @@ int main(int argc, char *argv[])
 	bool hashgen = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "t:o:m:k:f:q:s:p:r:a:l:c:d:i:x:v:b:y:z:w:h")) != -1)
+	while ((opt = getopt(argc, argv, "t:o:m:k:f:q:s:p:r:a:l:c:d:i:x:v:b:y:z:w:h:V")) != -1)
 	{
 		switch (opt)
 		{
@@ -1624,39 +1420,18 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 				if (DEBUG)
 					printf("num_threads_sort=%d\n", num_threads_sort);
-			// if (num_threads_sort > 1)
-			//{
-			//	printf("multi-threading for sorting has not been implemented, exiting\n");
-			//	return 1;
-
-			//}
-
 			break;
 		case 'y':
 			HASHGEN_THREADS_BUFFER = atoi(optarg);
 			if (benchmark == false)
 				if (DEBUG)
 					printf("HASHGEN_THREADS_BUFFER=%d\n", HASHGEN_THREADS_BUFFER);
-			// if (num_threads_sort > 1)
-			//{
-			//	printf("multi-threading for sorting has not been implemented, exiting\n");
-			//	return 1;
-
-			//}
-
 			break;
 		case 'i':
 			num_threads_io = atoi(optarg);
 			if (benchmark == false)
 				if (DEBUG)
 					printf("num_threads_io=%d\n", num_threads_io);
-			// if (num_threads_io > 1)
-			//{
-			//	printf("multi-threading for I/O has not been implemented, exiting\n");
-			//	return 1;
-
-			//}
-
 			break;
 		case 'm':
 			// if (benchmark == true)
@@ -1837,6 +1612,23 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 				printf("verify_records=%s\n", verify_records ? "true" : "false");
 			break;
+		case 'V':
+			// Set the flag to verify sorted hashes
+			if (strcmp(optarg, "true") == 0)
+			{
+				verify_compressed_records = true;
+			}
+			else if (strcmp(optarg, "false") == 0)
+			{
+				verify_compressed_records = false;
+			}
+			else
+			{
+				verify_compressed_records = false;
+			}
+			if (benchmark == false)
+				printf("verify_compressed_records=%s\n", verify_compressed_records ? "true" : "false");
+			break;
 		case 'w':
 			if (strcmp(optarg, "true") == 0)
 			{
@@ -1869,12 +1661,8 @@ int main(int argc, char *argv[])
 		printUsage();
 		return 1;
 	}
-	/*if (FILENAME_FINAL == NULL) {
-		printf("Error: filename (-q) is mandatory.\n");
-		printUsage();
-		return 1;
-	}*/
-	if (FILENAME != NULL && print_records == 0 && verify_records == false && targetHash == NULL && verify_records_num == 0 && search_records == 0 && (NUM_THREADS <= 0 || num_threads_sort <= 0 || FILESIZE < 0 || memory_size <= 0))
+
+	if (FILENAME != NULL && print_records == 0 && verify_records == false && verify_compressed_records == false && targetHash == NULL && verify_records_num == 0 && search_records == 0 && (NUM_THREADS <= 0 || num_threads_sort <= 0 || FILESIZE < 0 || memory_size <= 0))
 	{
 		printf("Error: mandatory command line arguments have not been used, try -h for more help\n");
 		printUsage();
@@ -1909,13 +1697,6 @@ int main(int argc, char *argv[])
 
 	if (FILESIZE == 0 || FILESIZE * 1024 * 1024 > bytes_free)
 		FILESIZE = (int)((bytes_free / (1024 * 1024)) / 100) * 100;
-
-	// if (FILESIZE*1024*1024*1024 > bytes_free)
-	//	{
-	//		printf("not enough storage space\n");
-	//		return 0;
-	//	}
-	// printf()
 
 	long long sort_memory = 0;
 	long long EXPECTED_TOTAL_FLUSHES = 0;
@@ -1961,7 +1742,6 @@ int main(int argc, char *argv[])
 	if (DEBUG)
 		printf("FILESIZE=%lld\n", FILESIZE);
 
-	// DEBUG = true;
 	if (hashgen)
 	{
 		for (WRITE_SIZE = 1024 * 1024 / ratio; WRITE_SIZE > 0; WRITE_SIZE = WRITE_SIZE / 2)
@@ -2073,8 +1853,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// DEBUG = false;
-
 	if (benchmark == false)
 		print_free_memory();
 
@@ -2101,12 +1879,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// printf("exiting...\n");
-	// exit(EXIT_FAILURE);
-
 	if (verify_records)
 	{
-
 		resetTimer(&timer);
 		int VERIFY_BUFFER_SIZE = 1000000 - RECORD_SIZE;
 		int fd;
@@ -2164,7 +1938,23 @@ int main(int argc, char *argv[])
 
 		return 0;
 	}
+	else if (verify_compressed_records)
+	{
+		resetTimer(&timer);
 
+		if (!verifySortedCompressed(FILENAME)) // Use your function here
+		{
+			printf("Compressed records are not sorted.\n");
+		}
+		else
+		{
+			printf("All compressed records are sorted.\n");
+		}
+
+		elapsedTime = getTimer(&timer);
+		// Output elapsed time or any other necessary information
+		printf("Compressed verification completed in %.3lf seconds.\n", elapsedTime);
+	}
 	// print records
 	else if (print_records > 0)
 	{
