@@ -2,12 +2,19 @@
 # in ./README.md to incorporate these C files into their existing build.
 
 NAME=blake3
+#CC=llvm
 CC=gcc
-CFLAGS=-O3 -Wall -Wextra -pedantic -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -fvisibility=hidden
+CFLAGS=-O3 -DBLAKE3_USE_NEON=0 -Wall -Wextra -pedantic -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -fvisibility=hidden
+#CFLAGS=-O3 -Wall -Wextra -pedantic -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -fvisibility=hidden
 LDFLAGS=-lm -lpthread -pie -Wl,-z,relro,-z,now
 TARGETS=
 ASM_TARGETS=
 EXTRAFLAGS=-Wa,--noexecstack
+
+# You can set values with a default, but allow it to be overridden
+NONCE_SIZE ?= 5
+RECORD_SIZE ?= 8
+CHUNK_SIZE ?= 67108864
 
 ifdef BLAKE3_NO_SSE2
 EXTRAFLAGS += -DBLAKE3_NO_SSE2
@@ -75,12 +82,38 @@ test_asm: CFLAGS += -DBLAKE3_TESTING -fsanitize=address,undefined
 test_asm: asm
 	./test.py
 
-vault: vault.c blake3.c blake3_dispatch.c blake3_portable.c $(ASM_TARGETS)
+vault_x86: vault.c blake3.c blake3_dispatch.c blake3_portable.c $(ASM_TARGETS)
+	$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -DNONCE_SIZE=$(NONCE_SIZE) -DRECORD_SIZE=$(RECORD_SIZE) -DCHUNK_SIZE=$(CHUNK_SIZE) -o vault $(LDFLAGS)
+
+vaultx: vaultx.c blake3.c blake3_dispatch.c blake3_portable.c $(ASM_TARGETS)
 	$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $@ $(LDFLAGS)
 
+vaultx2: vaultx2.c blake3.c blake3_dispatch.c blake3_portable.c $(ASM_TARGETS)
+	$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $@ $(LDFLAGS)
+
+vaultx3: vaultx3.c
+	$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -o $@ $(LDFLAGS)
+
+vault_arm: vault.c blake3.c blake3_dispatch.c blake3_portable.c
+	$(CC) $(CFLAGS) $(EXTRAFLAGS) $^ -DNONCE_SIZE=$(NONCE_SIZE) -DRECORD_SIZE=$(RECORD_SIZE) -DCHUNK_SIZE=$(CHUNK_SIZE) -o vault $(LDFLAGS)
+
+
 vault_mac: vault.c
-	$(CC) -o vault vault.c -lblake3 -lpthread -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib
-#	$(CC) -o vault vault.c -lblake3 -lpthread -ltbb -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib  -I/opt/homebrew/opt/tbb/include -L/opt/homebrew/opt/tbb/lib
+#	$(CC) -o vault vault.c -lblake3 -lsqlite3 -lpthread -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib
+	$(CC) -DNONCE_SIZE=$(NONCE_SIZE) -DRECORD_SIZE=$(RECORD_SIZE) -DCHUNK_SIZE=$(CHUNK_SIZE) -o vault vault.c -lblake3 -lpthread -ltbb -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib  -I/opt/homebrew/opt/tbb/include -L/opt/homebrew/opt/tbb/lib
+
+vaultx_mac: vaultx.c
+#-D NONCE_SIZE=$(NONCE_SIZE) 
+	$(CC) -o vaultx vaultx.c -lblake3 -lpthread -ltbb -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib  -I/opt/homebrew/opt/tbb/include -L/opt/homebrew/opt/tbb/lib
+
+vaultx2_mac: vaultx2.c
+#-D NONCE_SIZE=$(NONCE_SIZE) 
+	$(CC) -o vaultx2 vaultx2.c -lblake3 -lpthread -ltbb -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib  -I/opt/homebrew/opt/tbb/include -L/opt/homebrew/opt/tbb/lib
+
+vaultx3_mac: vaultx3.c
+#-D NONCE_SIZE=$(NONCE_SIZE) 
+	$(CC) -o vaultx3 vaultx3.c -O3
+
 
 vault_config: vault_config.c
 	$(CC) -o vault vault_config.c -lblake3 -lpthread -O3  -I/opt/homebrew/opt/blake3/include -L/opt/homebrew/opt/blake3/lib
@@ -88,4 +121,4 @@ vault_config: vault_config.c
 
 
 clean: 
-	rm -f $(NAME) vault vault_config *.o
+	rm -f $(NAME) vault vaultx vaultx2 vaultx3 vault_config *.o
