@@ -30,19 +30,19 @@ void semaphore_post(semaphore_t *sem)
 	pthread_mutex_unlock(&sem->mutex);
 }
 
-void resetTimer(Timer *timer)
+void reset_timer(Timer *timer)
 {
 	gettimeofday(&timer->start, NULL);
 }
 
-double getTimer(Timer *timer)
+double get_timer(Timer *timer)
 {
 	gettimeofday(&timer->end, NULL);
 	return (timer->end.tv_sec - timer->start.tv_sec) + (timer->end.tv_usec - timer->start.tv_usec) / 1000000.0;
 }
 
 // Function to compare two random records for sorting
-int compareMemoRecords(const void *a, const void *b)
+int compare_memo_records(const void *a, const void *b)
 {
 	const MemoRecord *ra = (const MemoRecord *)a;
 	const MemoRecord *rb = (const MemoRecord *)b;
@@ -54,96 +54,96 @@ struct CircularArray
 	MemoRecord *array;
 	size_t head;
 	size_t tail;
-	int producerFinished; // Flag to indicate when the producer is finished
+	int producer_finished; // Flag to indicate when the producer is finished
 	pthread_mutex_t mutex;
 	pthread_cond_t not_empty;
 	pthread_cond_t not_full;
 };
 
-void initCircularArray(struct CircularArray *circularArray)
+void init_circular_array(struct CircularArray *circular_array)
 {
-	circularArray->array = malloc(HASHGEN_THREADS_BUFFER * sizeof(MemoRecord));
-	circularArray->head = 0;
-	circularArray->tail = 0;
-	circularArray->producerFinished = 0;
-	pthread_mutex_init(&(circularArray->mutex), NULL);
-	pthread_cond_init(&(circularArray->not_empty), NULL);
-	pthread_cond_init(&(circularArray->not_full), NULL);
+	circular_array->array = malloc(HASHGEN_THREADS_BUFFER * sizeof(MemoRecord));
+	circular_array->head = 0;
+	circular_array->tail = 0;
+	circular_array->producer_finished = 0;
+	pthread_mutex_init(&(circular_array->mutex), NULL);
+	pthread_cond_init(&(circular_array->not_empty), NULL);
+	pthread_cond_init(&(circular_array->not_full), NULL);
 }
 
-void destroyCircularArray(struct CircularArray *circularArray)
+void destroy_circular_array(struct CircularArray *circular_array)
 {
-	free(circularArray->array);
-	pthread_mutex_destroy(&(circularArray->mutex));
-	pthread_cond_destroy(&(circularArray->not_empty));
-	pthread_cond_destroy(&(circularArray->not_full));
+	free(circular_array->array);
+	pthread_mutex_destroy(&(circular_array->mutex));
+	pthread_cond_destroy(&(circular_array->not_empty));
+	pthread_cond_destroy(&(circular_array->not_full));
 }
 
-void insertBatch(struct CircularArray *circularArray, MemoRecord values[BATCH_SIZE])
+void insert_batch(struct CircularArray *circular_array, MemoRecord values[BATCH_SIZE])
 {
 	if (DEBUG)
-		printf("insertBatch(): before mutex lock\n");
-	pthread_mutex_lock(&(circularArray->mutex));
+		printf("insert_batch(): before mutex lock\n");
+	pthread_mutex_lock(&(circular_array->mutex));
 
 	if (DEBUG)
-		printf("insertBatch(): Wait while the circular array is full and producer is not finished\n");
+		printf("insert_batch(): Wait while the circular array is full and producer is not finished\n");
 	// Wait while the circular array is full and producer is not finished
-	while ((circularArray->head + BATCH_SIZE) % HASHGEN_THREADS_BUFFER == circularArray->tail && !circularArray->producerFinished)
+	while ((circular_array->head + BATCH_SIZE) % HASHGEN_THREADS_BUFFER == circular_array->tail && !circular_array->producer_finished)
 	{
-		pthread_cond_wait(&(circularArray->not_full), &(circularArray->mutex));
+		pthread_cond_wait(&(circular_array->not_full), &(circular_array->mutex));
 	}
 
 	if (DEBUG)
-		printf("insertBatch(): Insert values\n");
+		printf("insert_batch(): Insert values\n");
 	// Insert values
 	for (int i = 0; i < BATCH_SIZE; i++)
 	{
-		memcpy(&circularArray->array[circularArray->head], &values[i], sizeof(MemoRecord));
-		circularArray->head = (circularArray->head + 1) % HASHGEN_THREADS_BUFFER;
+		memcpy(&circular_array->array[circular_array->head], &values[i], sizeof(MemoRecord));
+		circular_array->head = (circular_array->head + 1) % HASHGEN_THREADS_BUFFER;
 	}
 
 	if (DEBUG)
-		printf("insertBatch(): Signal that the circular array is not empty\n");
+		printf("insert_batch(): Signal that the circular array is not empty\n");
 	// Signal that the circular array is not empty
-	pthread_cond_signal(&(circularArray->not_empty));
+	pthread_cond_signal(&(circular_array->not_empty));
 
 	if (DEBUG)
-		printf("insertBatch(): mutex unlock\n");
-	pthread_mutex_unlock(&(circularArray->mutex));
+		printf("insert_batch(): mutex unlock\n");
+	pthread_mutex_unlock(&(circular_array->mutex));
 }
 
-void removeBatch(struct CircularArray *circularArray, MemoRecord *result)
+void remove_batch(struct CircularArray *circular_array, MemoRecord *result)
 {
-	pthread_mutex_lock(&(circularArray->mutex));
+	pthread_mutex_lock(&(circular_array->mutex));
 
 	// Wait while the circular array is empty and producer is not finished
-	while (circularArray->tail == circularArray->head && !circularArray->producerFinished)
+	while (circular_array->tail == circular_array->head && !circular_array->producer_finished)
 	{
-		pthread_cond_wait(&(circularArray->not_empty), &(circularArray->mutex));
+		pthread_cond_wait(&(circular_array->not_empty), &(circular_array->mutex));
 	}
 
 	// Remove values
 	for (int i = 0; i < BATCH_SIZE; i++)
 	{
-		memcpy(&result[i], &circularArray->array[circularArray->tail], sizeof(MemoRecord));
-		circularArray->tail = (circularArray->tail + 1) % HASHGEN_THREADS_BUFFER;
+		memcpy(&result[i], &circular_array->array[circular_array->tail], sizeof(MemoRecord));
+		circular_array->tail = (circular_array->tail + 1) % HASHGEN_THREADS_BUFFER;
 	}
 
 	// Signal that the circular array is not full
-	pthread_cond_signal(&(circularArray->not_full));
+	pthread_cond_signal(&(circular_array->not_full));
 
-	pthread_mutex_unlock(&(circularArray->mutex));
+	pthread_mutex_unlock(&(circular_array->mutex));
 }
 
 // Thread data structure
 struct ThreadData
 {
-	struct CircularArray *circularArray;
-	int threadID;
+	struct CircularArray *circular_array;
+	int thread_id;
 };
 
 // Function to generate a pseudo-random record using BLAKE3 hash
-void generateBlake3(MemoRecord *record, unsigned long long seed)
+void generate_blake3(MemoRecord *record, unsigned long long seed)
 {
 	// Store seed into the nonce
 	memcpy(record->nonce, &seed, sizeof(record->nonce));
@@ -156,345 +156,357 @@ void generateBlake3(MemoRecord *record, unsigned long long seed)
 }
 
 // Function to be executed by each thread for array generation
-void *arrayGenerationThread(void *arg)
+void *array_generation_thread(void *arg)
 {
-	struct ThreadData *data = (struct ThreadData *)arg;
+	struct ThreadData *data = (struct ThreadData *)arg; // Cast the argument to ThreadData structure
 	if (DEBUG)
-		printf("arrayGenerationThread %d\n", data->threadID);
-	int hashObjectSize = sizeof(MemoRecord);
-	MemoRecord batch[BATCH_SIZE];
-	long long NUM_HASHES_PER_THREAD = (long long)(NUM_ENTRIES / NUM_THREADS);
-	unsigned char hash[HASH_SIZE];
-	unsigned long long hashIndex = 0;
-	long long i = 0;
-	while (data->circularArray->producerFinished == 0)
+		printf("array_generation_thread %d\n", data->thread_id); // Print thread ID for debugging
+
+	// int hash_object_size = sizeof(MemoRecord);								  // Size of a single hash record
+	MemoRecord batch[BATCH_SIZE];											  // Array to hold a batch of generated hashes
+	long long NUM_HASHES_PER_THREAD = (long long)(NUM_ENTRIES / NUM_THREADS); // Calculate hashes each thread is responsible for
+	// unsigned char hash[HASH_SIZE];											  // Buffer to hold generated hash
+	unsigned long long hash_index = 0; // Index for tracking which hash to generate
+	long long i = 0;				   // Initialize loop counter
+
+	// Main loop for the thread
+	while (data->circular_array->producer_finished == 0) // Loop until the producer is finished
 	{
 		if (DEBUG)
-			printf("arrayGenerationThread(), inside while loop %llu...\n", i);
-		// for (unsigned int i = 0; i < NUM_HASHES_PER_THREAD; i += BATCH_SIZE) {
+			printf("array_generation_thread(), inside while loop %llu...\n", i);
+
+		// Generate a batch of hashes
 		for (long long j = 0; j < BATCH_SIZE; j++)
 		{
 			if (DEBUG)
-				printf("arrayGenerationThread(), inside for loop %llu...\n", j);
-			hashIndex = (long long)(NUM_HASHES_PER_THREAD * data->threadID + i + j);
-			generateBlake3(&batch[j], hashIndex);
+				printf("array_generation_thread(), inside for loop %llu...\n", j);
+
+			hash_index = (long long)(NUM_HASHES_PER_THREAD * data->thread_id + i + j); // Calculate the hash index based on the thread ID and current iteration
+			generate_blake3(&batch[j], hash_index);									   // Generate a hash using the calculated index
 		}
-		// should add hashIndex as NONCE to hashObject
+		// should add hash_index as NONCE to hashObject
 		if (DEBUG)
-			printf("insertBatch()...\n");
-		insertBatch(data->circularArray, batch);
+			printf("insert_batch()...\n");
+
+		insert_batch(data->circular_array, batch); // Add the batch to the circular array
 		i += BATCH_SIZE;
 	}
 
+	// Print message when the thread finishes generating hashes
 	if (DEBUG)
-		printf("finished generating hashes on thread id %d, thread exiting...\n", data->threadID);
-	return NULL;
+		printf("finished generating hashes on thread id %d, thread exiting...\n", data->thread_id);
+
+	return NULL; // Exit the thread
 }
 
-double getTimer(Timer *timer); // Ensure you have the correct prototype
+double get_timer(Timer *timer); // Ensure you have the correct prototype
 
-void printProgress(double elapsedTime, bool benchmark, size_t totalChunksProcessed, size_t numberOfChunks, size_t bytesWritten, double lastProgressUpdate)
+void print_progress(double elapsed_time, bool benchmark, size_t total_chunks_processed, size_t number_of_chunks, size_t bytes_written, double last_progress_update)
 {
-	double elapsedTimeSinceLastUpdate = elapsedTime - lastProgressUpdate;
-	double progress = (totalChunksProcessed * 100.0) / numberOfChunks;
-	double remainingTime = elapsedTime / (progress / 100.0) - elapsedTime;
+	double elapsed_time_since_last_update = elapsed_time - last_progress_update;
+	double progress = (total_chunks_processed * 100.0) / number_of_chunks;
+	double remaining_time = elapsed_time / (progress / 100.0) - elapsed_time;
 
 	if (benchmark == false)
 		printf("[%.0lf][COMPRESS]: %.2lf%% completed, ETA %.1lf seconds, %zu/%zu chunks, %.1lf MB/sec\n",
-			   floor(elapsedTime), progress, remainingTime, totalChunksProcessed, numberOfChunks,
-			   (bytesWritten / elapsedTimeSinceLastUpdate) / (1024 * 1024));
+			   floor(elapsed_time), progress, remaining_time, total_chunks_processed, number_of_chunks,
+			   (bytes_written / elapsed_time_since_last_update) / (1024 * 1024));
 }
 
-int strip_hash(Timer timer, bool benchmark, const char *inputFilePath, const char *outputFilePath)
+int strip_hash(Timer timer, bool benchmark, const char *input_file_path, const char *output_file_path)
 {
-	double elapsedTime = getTimer(&timer);
-	double lastProgressUpdate = elapsedTime;
+	double elapsed_time = get_timer(&timer);
+	double last_progress_update = elapsed_time;
 
 	// Open input file
-	int inputFile = open(inputFilePath, O_RDONLY);
-	if (inputFile == -1)
+	int input_file = open(input_file_path, O_RDONLY);
+	if (input_file == -1)
 	{
 		perror("Error opening input file");
 		return -1;
 	}
 
 	// Get the size of the input file
-	off_t fileSize = lseek(inputFile, 0, SEEK_END);
-	lseek(inputFile, 0, SEEK_SET); // Reset to the beginning of the file
+	off_t filesize = lseek(input_file, 0, SEEK_END);
+	lseek(input_file, 0, SEEK_SET); // Reset to the beginning of the file
 
 	// Calculate the number of MemoRecord structures
-	size_t numberOfRecords = fileSize / sizeof(MemoRecord);
+	size_t number_of_records = filesize / sizeof(MemoRecord);
 	if (DEBUG)
-		printf("Number of MemoRecord structures to expect: %zu\n", numberOfRecords);
+		printf("Number of MemoRecord structures to expect: %zu\n", number_of_records);
 
 	// Calculate the number of chunks to process
-	size_t numberOfChunks = (size_t)ceil((double)fileSize / CHUNK_SIZE);
+	size_t number_of_chunks = (size_t)ceil((double)filesize / CHUNK_SIZE);
 	if (DEBUG)
-		printf("Number of chunks to expect: %zu\n", numberOfChunks);
+		printf("Number of chunks to expect: %zu\n", number_of_chunks);
 
-	size_t numberOfRecordsInChunk = CHUNK_SIZE / sizeof(MemoRecord);
+	size_t number_of_records_in_chunk = CHUNK_SIZE / sizeof(MemoRecord);
 	if (DEBUG)
-		printf("Number of records in chunks: %zu\n", numberOfRecordsInChunk);
+		printf("Number of records in chunks: %zu\n", number_of_records_in_chunk);
 
-	// Open output file
-	int outputFile = open(outputFilePath, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-	if (outputFile == -1)
+	// Open output file for writing (creating if it doesn't exist)
+	int output_file = open(output_file_path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+	if (output_file == -1)
 	{
 		perror("Error opening output file");
-		close(inputFile);
+		close(input_file);
 		return -1;
 	}
 
 	// Dynamically allocate memory for the buffer and nonce buffer
 	uint8_t *buffer = (uint8_t *)malloc(CHUNK_SIZE);
-	uint8_t *nonceBuffer = (uint8_t *)malloc(NONCE_SIZE * numberOfRecordsInChunk); // Allocate enough for all nonces
-	if (buffer == NULL || nonceBuffer == NULL)
+	uint8_t *nonce_buffer = (uint8_t *)malloc(NONCE_SIZE * number_of_records_in_chunk); // Allocate enough for all nonces
+	if (buffer == NULL || nonce_buffer == NULL)
 	{
-		fprintf(stderr, "Memory allocation failed 1: %d %zu\n", CHUNK_SIZE, NONCE_SIZE * numberOfRecordsInChunk);
-		close(inputFile);
-		close(outputFile);
+		fprintf(stderr, "Memory allocation failed 1: %d %zu\n", CHUNK_SIZE, NONCE_SIZE * number_of_records_in_chunk);
+		close(input_file);
+		close(output_file);
 		return -1;
 	}
 
-	ssize_t bytesRead;
-	size_t totalChunksProcessed = 0;
-	size_t noncesInBuffer = 0; // Counter for nonces added to buffer
-	ssize_t bytesWritten = 0;
+	ssize_t bytes_read;
+	size_t total_chunks_processed = 0;
+	size_t nonces_in_buffer = 0; // Counter for nonces added to buffer
+	ssize_t bytes_written = 0;
 
-	while ((bytesRead = read(inputFile, buffer, CHUNK_SIZE)) > 0)
+	// Read input file in chunks until EOF
+	while ((bytes_read = read(input_file, buffer, CHUNK_SIZE)) > 0)
 	{
 		if (DEBUG)
-			printf("noncesInBuffer=%zu %zu %d\n", noncesInBuffer, bytesRead, CHUNK_SIZE);
+			printf("nonces_in_buffer=%zu %zu %d\n", nonces_in_buffer, bytes_read, CHUNK_SIZE);
 
-		size_t recordsInChunk = bytesRead / sizeof(MemoRecord);
+		size_t records_in_chunk = bytes_read / sizeof(MemoRecord);
 
-		// Process the data in the buffer
+		// Process each MemoRecord in the buffer
 		if (DEBUG)
-			printf("processing %zu records in chunk %zu\n", recordsInChunk, totalChunksProcessed);
-		for (size_t i = 0; i < recordsInChunk; i++)
+			printf("processing %zu records in chunk %zu\n", records_in_chunk, total_chunks_processed);
+		for (size_t i = 0; i < records_in_chunk; i++)
 		{
-			size_t indexRaw = i * sizeof(MemoRecord);
+			size_t index_raw = i * sizeof(MemoRecord);
 			if (DEBUG)
-				printf("indexRaw=%zu\n", indexRaw);
-			MemoRecord *record = (MemoRecord *)(buffer + indexRaw);
+				printf("index_raw=%zu\n", index_raw);
+			MemoRecord *record = (MemoRecord *)(buffer + index_raw);
 			// Copy nonce to nonce buffer
-			size_t indexCompressed = noncesInBuffer * NONCE_SIZE;
+			size_t index_compressed = nonces_in_buffer * NONCE_SIZE; // Calculate index for nonce
 			if (DEBUG)
-				printf("indexCompressed=%zu\n", indexCompressed);
+				printf("index_compressed=%zu\n", index_compressed);
 
-			if (indexCompressed >= NONCE_SIZE * numberOfRecordsInChunk)
+			// Check to avoid buffer overflow in nonce buffer
+			if (index_compressed >= NONCE_SIZE * number_of_records_in_chunk)
 			{
-				printf("this should not happen! %zu %zu %zu %d %zu\n", indexRaw, indexCompressed, NONCE_SIZE * numberOfRecordsInChunk, CHUNK_SIZE, NONCE_SIZE * numberOfRecordsInChunk);
+				printf("this should not happen! %zu %zu %zu %d %zu\n", index_raw, index_compressed, NONCE_SIZE * number_of_records_in_chunk, CHUNK_SIZE, NONCE_SIZE * number_of_records_in_chunk);
 				exit(0);
 			}
 
 			if (DEBUG)
 				printf("memcpy() NONCE_SIZE=%d\n", NONCE_SIZE);
-			memcpy(nonceBuffer + indexCompressed, record->nonce, NONCE_SIZE);
-			noncesInBuffer++;
+			// Copy nonce from the current record to nonce buffer
+			memcpy(nonce_buffer + index_compressed, record->nonce, NONCE_SIZE);
+			nonces_in_buffer++; // Increment nonce counter
 		}
 
 		if (DEBUG)
-			printf("check: %zu %zu %zu %zu\n", noncesInBuffer, recordsInChunk, totalChunksProcessed, numberOfChunks - 1);
+			printf("check: %zu %zu %zu %zu\n", nonces_in_buffer, records_in_chunk, total_chunks_processed, number_of_chunks - 1);
 		// Write the batched nonces to the output file when buffer is full or at the end
-		if (noncesInBuffer >= recordsInChunk || totalChunksProcessed == numberOfChunks - 1)
+		if (nonces_in_buffer >= records_in_chunk || total_chunks_processed == number_of_chunks - 1)
 		{
-			ssize_t result = write(outputFile, nonceBuffer, noncesInBuffer * NONCE_SIZE);
+			ssize_t result = write(output_file, nonce_buffer, nonces_in_buffer * NONCE_SIZE);
 			if (result == -1)
 			{
 				perror("Error writing to output file");
 				free(buffer);
-				free(nonceBuffer);
-				close(inputFile);
-				close(outputFile);
+				free(nonce_buffer);
+				close(input_file);
+				close(output_file);
 				return -1;
 			}
-			bytesWritten += result;
+			bytes_written += result;
 			if (DEBUG)
-				printf("write(): %zu %d %zu\n", bytesWritten, NONCE_SIZE, noncesInBuffer);
-			noncesInBuffer = 0; // Reset the nonce counter
+				printf("write(): %zu %d %zu\n", bytes_written, NONCE_SIZE, nonces_in_buffer);
+			nonces_in_buffer = 0; // Reset the nonce counter
 		}
 
-		totalChunksProcessed++;
-		elapsedTime = getTimer(&timer);
+		total_chunks_processed++;
+		elapsed_time = get_timer(&timer);
 
-		if (elapsedTime > lastProgressUpdate + 1.0)
+		if (elapsed_time > last_progress_update + 1.0)
 		{
-			printProgress(elapsedTime, benchmark, totalChunksProcessed, numberOfChunks, bytesWritten, lastProgressUpdate);
-			lastProgressUpdate = elapsedTime; // Update last progress time
-			bytesWritten = 0;
+			print_progress(elapsed_time, benchmark, total_chunks_processed, number_of_chunks, bytes_written, last_progress_update);
+			last_progress_update = elapsed_time; // Update last progress time
+			bytes_written = 0;
 		}
-	}
+	} // End of while loop
 
 	// Final write for any remaining nonces in the buffer
-	if (noncesInBuffer > 0)
+	if (nonces_in_buffer > 0)
 	{
-		ssize_t result = write(outputFile, nonceBuffer, noncesInBuffer * NONCE_SIZE);
+		ssize_t result = write(output_file, nonce_buffer, nonces_in_buffer * NONCE_SIZE);
 		if (result == -1)
 		{
 			perror("Error writing to output file");
 			free(buffer);
-			free(nonceBuffer);
-			close(inputFile);
-			close(outputFile);
+			free(nonce_buffer);
+			close(input_file);
+			close(output_file);
 			return -1;
 		}
-		bytesWritten += result;
+		bytes_written += result;
 	}
 
 	// Final progress update after processing
-	elapsedTime = getTimer(&timer);
-	printProgress(elapsedTime, benchmark, totalChunksProcessed, numberOfChunks, bytesWritten, lastProgressUpdate);
+	elapsed_time = get_timer(&timer);
+	print_progress(elapsed_time, benchmark, total_chunks_processed, number_of_chunks, bytes_written, last_progress_update);
 
 	// Free the allocated memory
 	free(buffer);
-	free(nonceBuffer);
+	free(nonce_buffer);
 
 	// Close files
-	close(inputFile);
-	close(outputFile);
+	close(input_file);
+	close(output_file);
 	return 0; // Indicate successful execution
 }
 
-int strip_hash_fwrite(Timer timer, bool benchmark, const char *inputFilePath, const char *outputFilePath)
+// Function that uses higher-level FILE I/O functions to strip the hash from the input file; can be more efficient for handling larger files
+int strip_hash_fwrite(Timer timer, bool benchmark, const char *input_file_path, const char *output_file_path)
 {
-	double elapsedTime = getTimer(&timer);
-	double lastProgressUpdate = elapsedTime;
+	double elapsed_time = get_timer(&timer);
+	double last_progress_update = elapsed_time;
 
 	// Open input file
-	FILE *inputFile = fopen(inputFilePath, "rb");
-	if (inputFile == NULL)
+	FILE *input_file = fopen(input_file_path, "rb");
+	if (input_file == NULL)
 	{
 		perror("Error opening input file");
 		return -1;
 	}
 
 	// Get the size of the input file
-	fseek(inputFile, 0, SEEK_END);
-	long fileSize = ftell(inputFile);
-	fseek(inputFile, 0, SEEK_SET); // Reset to the beginning of the file
+	fseek(input_file, 0, SEEK_END);
+	long filesize = ftell(input_file);
+	fseek(input_file, 0, SEEK_SET); // Reset to the beginning of the file
 
 	// Calculate the number of MemoRecord structures
-	size_t numberOfRecords = fileSize / sizeof(MemoRecord);
+	size_t number_of_records = filesize / sizeof(MemoRecord);
 	if (DEBUG)
-		printf("Number of MemoRecord structures to expect: %zu\n", numberOfRecords);
+		printf("Number of MemoRecord structures to expect: %zu\n", number_of_records);
 
 	// Calculate the number of chunks to process
-	size_t numberOfChunks = (size_t)ceil((double)fileSize / CHUNK_SIZE);
+	size_t number_of_chunks = (size_t)ceil((double)filesize / CHUNK_SIZE);
 	if (DEBUG)
-		printf("Number of chunks to expect: %zu\n", numberOfChunks);
+		printf("Number of chunks to expect: %zu\n", number_of_chunks);
 
-	size_t numberOfRecordsInChunk = CHUNK_SIZE / sizeof(MemoRecord);
+	size_t number_of_records_in_chunk = CHUNK_SIZE / sizeof(MemoRecord);
 	if (DEBUG)
-		printf("Number of records in chunks: %zu\n", numberOfRecordsInChunk);
+		printf("Number of records in chunks: %zu\n", number_of_records_in_chunk);
 
 	// Open output file
-	FILE *outputFile = fopen(outputFilePath, "wb");
-	if (outputFile == NULL)
+	FILE *output_file = fopen(output_file_path, "wb");
+	if (output_file == NULL)
 	{
 		perror("Error opening output file");
-		fclose(inputFile);
+		fclose(input_file);
 		return -1;
 	}
 
 	// Dynamically allocate memory for the buffer and nonce buffer
 	uint8_t *buffer = (uint8_t *)malloc(CHUNK_SIZE);
-	uint8_t *nonceBuffer = (uint8_t *)malloc(NONCE_SIZE * numberOfRecordsInChunk); // Allocate enough for all nonces
-	if (buffer == NULL || nonceBuffer == NULL)
+	uint8_t *nonce_buffer = (uint8_t *)malloc(NONCE_SIZE * number_of_records_in_chunk); // Allocate enough for all nonces
+	if (buffer == NULL || nonce_buffer == NULL)
 	{
-		fprintf(stderr, "Memory allocation failed 1: %d %zu\n", CHUNK_SIZE, NONCE_SIZE * numberOfRecordsInChunk);
-		fclose(inputFile);
-		fclose(outputFile);
+		fprintf(stderr, "Memory allocation failed 1: %d %zu\n", CHUNK_SIZE, NONCE_SIZE * number_of_records_in_chunk);
+		fclose(input_file);
+		fclose(output_file);
 		return -1;
 	}
 
-	size_t bytesRead;
-	size_t totalChunksProcessed = 0;
-	size_t noncesInBuffer = 0; // Counter for nonces added to buffer
-	size_t bytesWritten = 0;
+	size_t bytes_read;
+	size_t total_chunks_processed = 0;
+	size_t nonces_in_buffer = 0; // Counter for nonces added to buffer
+	size_t bytes_written = 0;
 
-	while ((bytesRead = fread(buffer, 1, CHUNK_SIZE, inputFile)) > 0)
+	while ((bytes_read = fread(buffer, 1, CHUNK_SIZE, input_file)) > 0)
 	{
 		if (DEBUG)
-			printf("noncesInBuffer=%zu %zu %d\n", noncesInBuffer, bytesRead, CHUNK_SIZE);
-		size_t recordsInChunk = bytesRead / sizeof(MemoRecord);
+			printf("nonces_in_buffer=%zu %zu %d\n", nonces_in_buffer, bytes_read, CHUNK_SIZE);
+		size_t records_in_chunk = bytes_read / sizeof(MemoRecord);
 
 		// Process the data in the buffer
 		if (DEBUG)
-			printf("processing %zu records in chunk %zu\n", recordsInChunk, totalChunksProcessed);
-		for (size_t i = 0; i < recordsInChunk; i++)
+			printf("processing %zu records in chunk %zu\n", records_in_chunk, total_chunks_processed);
+		for (size_t i = 0; i < records_in_chunk; i++)
 		{
-			size_t indexRaw = i * sizeof(MemoRecord);
+			size_t index_raw = i * sizeof(MemoRecord);
 			if (DEBUG)
-				printf("indexRaw=%zu\n", indexRaw);
-			MemoRecord *record = (MemoRecord *)(buffer + indexRaw);
+				printf("index_raw=%zu\n", index_raw);
+			MemoRecord *record = (MemoRecord *)(buffer + index_raw);
 			// Copy nonce to nonce buffer
-			size_t indexCompressed = noncesInBuffer * NONCE_SIZE;
+			size_t index_compressed = nonces_in_buffer * NONCE_SIZE;
 			if (DEBUG)
-				printf("indexCompressed=%zu\n", indexCompressed);
+				printf("index_compressed=%zu\n", index_compressed);
 
-			if (indexCompressed >= NONCE_SIZE * numberOfRecordsInChunk)
+			if (index_compressed >= NONCE_SIZE * number_of_records_in_chunk)
 			{
-				printf("this should not happen! %zu %zu %zu %d %zu\n", indexRaw, indexCompressed, NONCE_SIZE * numberOfRecordsInChunk, CHUNK_SIZE, NONCE_SIZE * numberOfRecordsInChunk);
+				printf("this should not happen! %zu %zu %zu %d %zu\n", index_raw, index_compressed, NONCE_SIZE * number_of_records_in_chunk, CHUNK_SIZE, NONCE_SIZE * number_of_records_in_chunk);
 				exit(0);
 			}
 
 			if (DEBUG)
 				printf("memcpy() NONCE_SIZE=%d\n", NONCE_SIZE);
-			memcpy(nonceBuffer + indexCompressed, record->nonce, NONCE_SIZE);
-			noncesInBuffer++;
+			memcpy(nonce_buffer + index_compressed, record->nonce, NONCE_SIZE);
+			nonces_in_buffer++;
 		}
 
 		if (DEBUG)
-			printf("check: %zu %zu %zu %zu\n", noncesInBuffer, recordsInChunk, totalChunksProcessed, numberOfChunks - 1);
+			printf("check: %zu %zu %zu %zu\n", nonces_in_buffer, records_in_chunk, total_chunks_processed, number_of_chunks - 1);
 		// Write the batched nonces to the output file when buffer is full or at the end
-		if (noncesInBuffer >= recordsInChunk || totalChunksProcessed == numberOfChunks - 1)
+		if (nonces_in_buffer >= records_in_chunk || total_chunks_processed == number_of_chunks - 1)
 		{
-			// bytesWritten += fwrite(nonceBuffer, NONCE_SIZE, noncesInBuffer, outputFile);
-			bytesWritten += fwrite(nonceBuffer, 1, noncesInBuffer * NONCE_SIZE, outputFile);
+			// bytes_written += fwrite(nonce_buffer, NONCE_SIZE, nonces_in_buffer, output_file);
+			bytes_written += fwrite(nonce_buffer, 1, nonces_in_buffer * NONCE_SIZE, output_file);
 			if (DEBUG)
-				printf("fwrite(): %zu %d %zu\n", bytesWritten, NONCE_SIZE, noncesInBuffer);
-			noncesInBuffer = 0; // Reset the nonce counter
+				printf("fwrite(): %zu %d %zu\n", bytes_written, NONCE_SIZE, nonces_in_buffer);
+			nonces_in_buffer = 0; // Reset the nonce counter
 		}
 
-		totalChunksProcessed++;
-		elapsedTime = getTimer(&timer);
+		total_chunks_processed++;
+		elapsed_time = get_timer(&timer);
 
-		if (elapsedTime > lastProgressUpdate + 1.0)
+		if (elapsed_time > last_progress_update + 1.0)
 		{
-			printProgress(elapsedTime, benchmark, totalChunksProcessed, numberOfChunks, bytesWritten, lastProgressUpdate);
-			lastProgressUpdate = elapsedTime; // Update last progress time
-			bytesWritten = 0;
+			print_progress(elapsed_time, benchmark, total_chunks_processed, number_of_chunks, bytes_written, last_progress_update);
+			last_progress_update = elapsed_time; // Update last progress time
+			bytes_written = 0;
 		}
 	}
 
 	// Final write for any remaining nonces in the buffer
-	if (noncesInBuffer > 0)
+	if (nonces_in_buffer > 0)
 	{
-		bytesWritten += fwrite(nonceBuffer, NONCE_SIZE, noncesInBuffer, outputFile);
+		bytes_written += fwrite(nonce_buffer, NONCE_SIZE, nonces_in_buffer, output_file);
 	}
 
 	// Final progress update after processing
-	elapsedTime = getTimer(&timer);
-	printProgress(elapsedTime, benchmark, totalChunksProcessed, numberOfChunks, bytesWritten, lastProgressUpdate);
+	elapsed_time = get_timer(&timer);
+	print_progress(elapsed_time, benchmark, total_chunks_processed, number_of_chunks, bytes_written, last_progress_update);
 
 	// Free the allocated memory
 	free(buffer);
-	free(nonceBuffer);
+	free(nonce_buffer);
 
 	// Close files
-	fclose(inputFile);
-	fclose(outputFile);
+	fclose(input_file);
+	fclose(output_file);
 	return 0; // Indicate successful execution
 }
 
-void remove_file(const char *fileName)
+void remove_file(const char *filename)
 {
 	// Attempt to remove the file
-	if (remove(fileName) == 0)
+	if (remove(filename) == 0)
 	{
 		if (DEBUG)
-			printf("File '%s' removed successfully.\n", fileName);
+			printf("File '%s' removed successfully.\n", filename);
 	}
 	else
 	{
@@ -503,38 +515,37 @@ void remove_file(const char *fileName)
 }
 
 // Function to write a bucket of random records to disk
-void writeBucketToDisk(const Bucket *bucket, int fd, off_t offset)
+void write_bucket_to_disk(const Bucket *bucket, int fd, off_t offset)
 {
 	if (DEBUG)
-		printf("writeBucketToDisk(): %lld %lu %d %lld %zu\n", offset, sizeof(MemoRecord), BUCKET_SIZE, WRITE_SIZE, bucket->flush);
+		printf("write_bucket_to_disk(): %lld %lu %d %lld %zu\n", offset, sizeof(MemoRecord), BUCKET_SIZE, WRITE_SIZE, bucket->flush);
 	if (DEBUG)
-		printf("writeBucketToDisk(): %lld\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush);
+		printf("write_bucket_to_disk(): %lld\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush);
 	if (lseek(fd, offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, SEEK_SET) < 0)
 	{
-		printf("writeBucketToDisk(): Error seeking in file at offset %llu; more details: %llu %llu %lu %lld %zu\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, offset, FLUSH_SIZE, sizeof(MemoRecord), WRITE_SIZE, bucket->flush);
+		printf("write_bucket_to_disk(): Error seeking in file at offset %llu; more details: %llu %llu %lu %lld %zu\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, offset, FLUSH_SIZE, sizeof(MemoRecord), WRITE_SIZE, bucket->flush);
 		close(fd);
 		exit(EXIT_FAILURE);
 	}
 
-	unsigned long long bytesWritten = write(fd, bucket->records, sizeof(MemoRecord) * bucket->count);
-	if (bytesWritten < 0)
+	unsigned long long bytes_written = write(fd, bucket->records, sizeof(MemoRecord) * bucket->count);
+	if (bytes_written < 0)
 	{
 		// perror("Error writing to file");
-		printf("Error writing bucket at offset %llu to file; bytes written %llu when it expected %lu\n", offset, bytesWritten, sizeof(MemoRecord) * bucket->count);
+		printf("Error writing bucket at offset %llu to file; bytes written %llu when it expected %lu\n", offset, bytes_written, sizeof(MemoRecord) * bucket->count);
 		close(fd);
 		exit(EXIT_FAILURE);
 	}
 	if (DEBUG)
-		printf("writeBucketToDisk(): bytesWritten=%lld %lu\n", bytesWritten, sizeof(MemoRecord) * bucket->count);
+		printf("write_bucket_to_disk(): bytes_written=%lld %lu\n", bytes_written, sizeof(MemoRecord) * bucket->count);
 }
 
-void printBytes(const uint8_t *bytes, size_t length)
+void print_bytes(const uint8_t *bytes, size_t length)
 {
 	for (size_t i = 0; i < length; i++)
 	{
 		printf("%02x", bytes[i]);
 	}
-	// printf("\n");
 }
 
 void print_binary(const uint8_t *byte_array, size_t array_size, int b)
@@ -558,37 +569,37 @@ void print_binary(const uint8_t *byte_array, size_t array_size, int b)
 	printf("\n");
 }
 
-off_t byteArrayToUnsignedIntBigEndian(const uint8_t *byteArray, int b)
+off_t byte_array_to_unsigned_int_big_endian(const uint8_t *byte_array, int b)
 {
-	print_binary(byteArray, HASH_SIZE, b);
+	print_binary(byte_array, HASH_SIZE, b);
 	off_t result = 0;
 
 	size_t byteIndex = b / 8; // Determine the byte index
 	size_t bitOffset = b % 8; // Determine the bit offset within the byte
 
-	printf("byteArrayToUnsignedIntBigEndian(): byteIndex=%lu\n", byteIndex);
-	printf("byteArrayToUnsignedIntBigEndian(): bitOffset=%lu\n", bitOffset);
+	printf("byte_array_to_unsigned_int_big_endian(): byteIndex=%lu\n", byteIndex);
+	printf("byte_array_to_unsigned_int_big_endian(): bitOffset=%lu\n", bitOffset);
 	// Extract the bits from the byte array
 	for (size_t i = 0; i < byteIndex; ++i)
 	{
-		result |= (uint32_t)byteArray[i] << ((byteIndex - i - 1) * 8);
+		result |= (uint32_t)byte_array[i] << ((byteIndex - i - 1) * 8);
 	}
-	printf("byteArrayToUnsignedIntBigEndian(): result1=%lld\n", result);
+	printf("byte_array_to_unsigned_int_big_endian(): result1=%lld\n", result);
 
 	// Extract the remaining bits
 	if (bitOffset > 0)
 	{
-		result |= (uint32_t)(byteArray[byteIndex] >> (8 - bitOffset));
+		result |= (uint32_t)(byte_array[byteIndex] >> (8 - bitOffset));
 	}
-	printf("byteArrayToUnsignedIntBigEndian(): result2=%lld\n", result);
+	printf("byte_array_to_unsigned_int_big_endian(): result2=%lld\n", result);
 
 	return result;
 }
 
-off_t binaryByteArrayToULL(const uint8_t *byteArray, size_t array_size, int b)
+off_t binary_byte_array_to_ull(const uint8_t *byte_array, size_t array_size, int b)
 {
 	if (DEBUG)
-		print_binary(byteArray, array_size, b);
+		print_binary(byte_array, array_size, b);
 	off_t result = 0;
 	int bits_used = 0; // To keep track of how many bits we've used so far
 
@@ -596,27 +607,27 @@ off_t binaryByteArrayToULL(const uint8_t *byteArray, size_t array_size, int b)
 	{
 		for (int j = 7; j >= 0 && bits_used < b; --j)
 		{
-			result = (result << 1) | ((byteArray[i] >> j) & 1);
+			result = (result << 1) | ((byte_array[i] >> j) & 1);
 			bits_used++;
 		}
 	}
 	if (DEBUG)
-		printf("binaryByteArrayToULL(): result=%lld\n", result);
+		printf("binary_byte_array_to_ull(): result=%lld\n", result);
 	return result;
 }
 
-off_t getBucketIndex(const uint8_t *byteArray, int b)
+off_t get_bucket_index(const uint8_t *byte_array, int b)
 {
 	off_t result = 0;
-	result = binaryByteArrayToULL(byteArray, HASH_SIZE, b);
+	result = binary_byte_array_to_ull(byte_array, HASH_SIZE, b);
 	if (DEBUG)
-		printf("getBucketIndex(): %lld %d\n", result, b);
+		printf("get_bucket_index(): %lld %d\n", result, b);
 
 	// printf(" : %lld\n",result);
 	return result;
 }
 
-off_t getBucketIndex_old(const uint8_t *hash, int num_bits)
+off_t get_bucket_index_old(const uint8_t *hash, int num_bits)
 {
 	off_t index = 0;
 	int shift_bits = 0;
@@ -637,7 +648,7 @@ off_t getBucketIndex_old(const uint8_t *hash, int num_bits)
 	return index;
 }
 
-long long getFileSize(const char *filename)
+long long get_file_size(const char *filename)
 {
 	struct stat st;
 
@@ -653,7 +664,7 @@ long long getFileSize(const char *filename)
 }
 
 // Function to print the contents of the file
-void printFile(const char *filename, int numRecords)
+void print_file(const char *filename, int num_records)
 {
 	FILE *file = fopen(filename, "rb");
 	if (file == NULL)
@@ -665,19 +676,19 @@ void printFile(const char *filename, int numRecords)
 	MemoRecord number;
 	// uint8_t array[16];
 
-	unsigned long long recordsPrinted = 0;
+	unsigned long long records_printed = 0;
 
-	while (recordsPrinted < numRecords && fread(&number, sizeof(MemoRecord), 1, file) == 1)
+	while (records_printed < num_records && fread(&number, sizeof(MemoRecord), 1, file) == 1)
 	{
 		// Interpret nonce as unsigned long long
-		unsigned long long nonceValue = 0;
+		unsigned long long nonce_value = 0;
 		for (int i = 0; i < sizeof(number.nonce); i++)
 		{
-			nonceValue |= (unsigned long long)number.nonce[i] << (i * 8);
+			nonce_value |= (unsigned long long)number.nonce[i] << (i * 8);
 		}
 
 		// Print hash
-		printf("[%llu] Hash: ", recordsPrinted * sizeof(MemoRecord));
+		printf("[%llu] Hash: ", records_printed * sizeof(MemoRecord));
 		for (int i = 0; i < sizeof(number.hash); i++)
 		{
 			printf("%02x", number.hash[i]);
@@ -691,17 +702,16 @@ void printFile(const char *filename, int numRecords)
 		}
 
 		// Print nonce as unsigned long long
-		printf(" : %llu\n", nonceValue);
+		printf(" : %llu\n", nonce_value);
 
-		recordsPrinted++;
+		records_printed++;
 	}
-	// printf("all done!\n");
 
 	fclose(file);
 }
 
 // Function to print the contents of the file
-void printFileTail(const char *filename, int numRecords)
+void print_file_tail(const char *filename, int num_records)
 {
 	FILE *file = fopen(filename, "rb");
 	if (file == NULL)
@@ -710,32 +720,32 @@ void printFileTail(const char *filename, int numRecords)
 		return;
 	}
 
-	long long fileSize = getFileSize(filename);
+	long long filesize = get_file_size(filename);
 
-	off_t offset = fileSize - numRecords * RECORD_SIZE;
+	off_t offset = filesize - num_records * RECORD_SIZE;
 
 	if (fseek(file, offset, SEEK_SET) < 0)
 	{
-		printf("printFileTail(): Error seeking in file at offset %llu\n", offset);
+		printf("print_file_tail(): Error seeking in file at offset %llu\n", offset);
 		fclose(file);
 		exit(EXIT_FAILURE);
 	}
 
 	MemoRecord number;
 
-	unsigned long long recordsPrinted = 0;
+	unsigned long long records_printed = 0;
 
-	while (recordsPrinted < numRecords && fread(&number, sizeof(MemoRecord), 1, file) == 1)
+	while (records_printed < num_records && fread(&number, sizeof(MemoRecord), 1, file) == 1)
 	{
 		// Interpret nonce as unsigned long long
-		unsigned long long nonceValue = 0;
+		unsigned long long nonce_value = 0;
 		for (int i = 0; i < sizeof(number.nonce); i++)
 		{
-			nonceValue |= (unsigned long long)number.nonce[i] << (i * 8);
+			nonce_value |= (unsigned long long)number.nonce[i] << (i * 8);
 		}
 
 		// Print hash
-		printf("[%llu] Hash: ", offset + recordsPrinted * sizeof(MemoRecord));
+		printf("[%llu] Hash: ", offset + records_printed * sizeof(MemoRecord));
 		for (int i = 0; i < sizeof(number.hash); i++)
 		{
 			printf("%02x", number.hash[i]);
@@ -749,37 +759,35 @@ void printFileTail(const char *filename, int numRecords)
 		}
 
 		// Print nonce as unsigned long long
-		printf(" : %llu\n", nonceValue);
+		printf(" : %llu\n", nonce_value);
 
-		recordsPrinted++;
+		records_printed++;
 	}
-	// printf("all done!\n");
 
 	fclose(file);
 }
 
 // Binary search function to search for a hash from disk
-int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescriptor, long long filesize, int *seekCount, bool bulk)
+int binary_search(const uint8_t *target_hash, size_t target_length, int file_descriptor, long long filesize, int *seek_count, bool bulk)
 {
 	if (DEBUG)
 	{
-		printf("binarySearch()=");
-		printBytes(targetHash, targetLength);
+		printf("binary_search()=");
+		print_bytes(target_hash, target_length);
 		printf("\n");
 	}
 	// should use filesize to determine left and right
 	//  Calculate the bucket index based on the first 2-byte prefix
-	off_t bucketIndex = getBucketIndex(targetHash, PREFIX_SIZE);
-	// int bucketIndex = (targetHash[0] << 8) | targetHash[1];
+	off_t bucket_index = get_bucket_index(target_hash, PREFIX_SIZE);
+	// int bucket_index = (target_hash[0] << 8) | target_hash[1];
 	if (DEBUG)
-		printf("bucketIndex=%lld\n", bucketIndex);
+		printf("bucket_index=%lld\n", bucket_index);
 
 	// filesize
 	long long FILESIZE = filesize;
 	if (DEBUG)
 		printf("FILESIZE=%lld\n", FILESIZE);
 
-	// int RECORD_SIZE = sizeof(MemoRecord);
 	if (DEBUG)
 		printf("RECORD_SIZE=%d\n", RECORD_SIZE);
 
@@ -788,24 +796,22 @@ int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescrip
 		printf("NUM_ENTRIES=%lld\n", NUM_ENTRIES);
 
 	int BUCKET_SIZE = (FILESIZE) / (RECORD_SIZE * NUM_BUCKETS);
-	// BUCKET_SIZE = 1024;
 	if (DEBUG)
 		printf("BUCKET_SIZE=%d\n", BUCKET_SIZE);
 
 	// left and right are record numbers, not byte offsets
-	off_t left = bucketIndex * BUCKET_SIZE;
+	off_t left = bucket_index * BUCKET_SIZE;
 	if (DEBUG)
 		printf("left=%lld\n", left);
-	off_t right = (bucketIndex + 1) * BUCKET_SIZE - 1;
+	off_t right = (bucket_index + 1) * BUCKET_SIZE - 1;
 	if (DEBUG)
 		printf("right=%lld\n", right);
 
-	// off_t right = filesize / sizeof(MemoRecord);
 	off_t middle;
 	MemoRecord number;
 
 	if (bulk == false)
-		*seekCount = 0; // Initialize seek count
+		*seek_count = 0; // Initialize seek count
 
 	while (left <= right && right - left > SEARCH_SIZE)
 	{
@@ -814,38 +820,37 @@ int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescrip
 			printf("left=%lld middle=%lld right=%lld\n", left, middle, right);
 
 		// Increment seek count
-		(*seekCount)++;
+		(*seek_count)++;
 		// if (DEBUG)
-		//	printf("seekCount=%lld \n",seekCount);
+		//	printf("seek_count=%lld \n",seek_count);
 
 		if (DEBUG)
 			printf("lseek=%lld %lu\n", middle * sizeof(MemoRecord), sizeof(MemoRecord));
 		// Seek to the middle position
-		if (lseek(fileDescriptor, middle * sizeof(MemoRecord), SEEK_SET) < 0)
+		if (lseek(file_descriptor, middle * sizeof(MemoRecord), SEEK_SET) < 0)
 		{
-			printf("binarySearch(): Error seeking in file at offset %llu\n", middle * sizeof(MemoRecord));
+			printf("binary_search(): Error seeking in file at offset %llu\n", middle * sizeof(MemoRecord));
 			exit(EXIT_FAILURE);
 		}
 
 		// Read the hash at the middle position
-		if (read(fileDescriptor, &number, sizeof(MemoRecord)) < 0)
+		if (read(file_descriptor, &number, sizeof(MemoRecord)) < 0)
 		{
 			perror("Error reading from file");
 			exit(EXIT_FAILURE);
 		}
 
 		// Compare the target hash with the hash read from file
-
 		if (DEBUG)
 		{
-			printf("memcmp(targetHash)=");
-			printBytes(targetHash, targetLength);
+			printf("memcmp(target_hash)=");
+			print_bytes(target_hash, target_length);
 			printf("\n");
 			printf("memcmp(number.hash)=");
-			printBytes(number.hash, targetLength);
+			print_bytes(number.hash, target_length);
 			printf("\n");
 		}
-		int cmp = memcmp(targetHash, number.hash, targetLength);
+		int cmp = memcmp(target_hash, number.hash, target_length);
 
 		if (DEBUG)
 		{
@@ -861,18 +866,15 @@ int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescrip
 
 		if (cmp == 0)
 		{
-			// Hash found
-			return middle;
+			return middle; // Hash found
 		}
 		else if (cmp < 0)
 		{
-			// Search the left half
-			right = middle - 1;
+			right = middle - 1; // Search the left half
 		}
 		else
 		{
-			// Search the right half
-			left = middle + 1;
+			left = middle + 1; // Search the right half
 		}
 	}
 
@@ -880,11 +882,11 @@ int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescrip
 	if (right - left <= SEARCH_SIZE)
 	{
 		// Increment seek count
-		(*seekCount)++;
+		(*seek_count)++;
 		// Seek to the left position
-		if (lseek(fileDescriptor, left * sizeof(MemoRecord), SEEK_SET) < 0)
+		if (lseek(file_descriptor, left * sizeof(MemoRecord), SEEK_SET) < 0)
 		{
-			printf("binarySearch(2): Error seeking in file at offset %llu\n", left * sizeof(MemoRecord));
+			printf("binary_search(2): Error seeking in file at offset %llu\n", left * sizeof(MemoRecord));
 			exit(EXIT_FAILURE);
 		}
 
@@ -892,74 +894,71 @@ int binarySearch(const uint8_t *targetHash, size_t targetLength, int fileDescrip
 		while (left <= right)
 		{
 			// Read the hash at the current position
-			if (read(fileDescriptor, &number, sizeof(MemoRecord)) < 0)
+			if (read(file_descriptor, &number, sizeof(MemoRecord)) < 0)
 			{
 				perror("Error reading from file");
 				exit(EXIT_FAILURE);
 			}
 
 			// Compare the target hash with the hash read from file
-			int cmp = memcmp(targetHash, number.hash, targetLength);
+			int cmp = memcmp(target_hash, number.hash, target_length);
 			if (cmp == 0)
 			{
-				// Hash found
-				return left;
+				return left; // Hash found
 			}
 
-			// Move to the next position
-			left++;
+			left++; // Move to the next position
 		}
 	}
 
-	// Hash not found
-	return -1;
+	return -1; // Hash not found
 }
 
-uint8_t *hexStringToByteArray(const char *hexString, uint8_t *byteArray, size_t byteArraySize)
+uint8_t *hex_string_to_byte_array(const char *hex_string, uint8_t *byte_array, size_t byte_array_size)
 {
-	size_t hexLen = strlen(hexString);
-	if (hexLen % 2 != 0)
+	size_t hex_len = strlen(hex_string);
+	if (hex_len % 2 != 0)
 	{
 		return NULL; // Error: Invalid hexadecimal string length
 	}
 
-	size_t byteLen = hexLen / 2;
-	if (byteLen > byteArraySize)
+	size_t byte_len = hex_len / 2;
+	if (byte_len > byte_array_size)
 	{
 		return NULL; // Error: Byte array too small
 	}
 
-	for (size_t i = 0; i < byteLen; ++i)
+	for (size_t i = 0; i < byte_len; ++i)
 	{
-		if (sscanf(&hexString[i * 2], "%2hhx", &byteArray[i]) != 1)
+		if (sscanf(&hex_string[i * 2], "%2hhx", &byte_array[i]) != 1)
 		{
 			return NULL; // Error: Failed to parse hexadecimal string
 		}
 	}
 
-	return byteArray;
+	return byte_array;
 }
 
-unsigned long long byteArrayToLongLong(const uint8_t *byteArray, size_t length)
+unsigned long long byte_array_to_long_long(const uint8_t *byte_array, size_t length)
 {
 	unsigned long long result = 0;
 	for (size_t i = 0; i < length; ++i)
 	{
-		result = (result << 8) | (unsigned long long)byteArray[i];
+		result = (result << 8) | (unsigned long long)byte_array[i];
 	}
 	return result;
 }
 
-void longLongToByteArray(unsigned long long value, uint8_t *byteArray, size_t length)
+void long_long_to_byte_array(unsigned long long value, uint8_t *byte_array, size_t length)
 {
 	for (size_t i = length - 1; i >= 0; --i)
 	{
-		byteArray[i] = value & 0xFF;
+		byte_array[i] = value & 0xFF;
 		value >>= 8;
 	}
 }
 
-char *removeFilename(const char *path)
+char *remove_filename(const char *path)
 {
 	// Find the position of the last directory separator
 	const char *last_separator = strrchr(path, '/');
@@ -968,8 +967,6 @@ char *removeFilename(const char *path)
 		if (DEBUG)
 			printf("No directory separator found, return a copy of the original string: %s\n", path);
 		return "./";
-		// No directory separator found, return a copy of the original string
-		// return strdup(path);
 	}
 
 	// Calculate the length of the directory path
@@ -991,10 +988,10 @@ char *removeFilename(const char *path)
 	return directory_path;
 }
 
-unsigned long long getDiskSpace(const char *path)
+unsigned long long get_disk_space(const char *path)
 {
 
-	char *result = removeFilename(path);
+	char *result = remove_filename(path);
 
 	// Retrieve file system statistics for the directory path
 	struct statvfs stat;
@@ -1010,35 +1007,36 @@ unsigned long long getDiskSpace(const char *path)
 }
 
 // Function to read a chunk of data from a file using pread
-ssize_t readChunk(int fd, char *buffer, off_t offset, size_t chunkSize)
+ssize_t read_chunk(int fd, char *buffer, off_t offset, size_t chunkSize)
 {
-	ssize_t bytesRead;
+	ssize_t bytes_read;
 
 	// Read a chunk of data from the file at the specified offset
-	bytesRead = pread(fd, buffer, chunkSize, offset);
-	if (bytesRead == -1)
+	bytes_read = pread(fd, buffer, chunkSize, offset);
+	if (bytes_read == -1)
 	{
 		perror("Error reading file");
 		return -1;
 	}
 
-	return bytesRead;
+	return bytes_read;
 }
 
 // Function to verify if the records in the buffer are sorted
-int verifySorted(char *buffer, size_t bytesRead)
+int verify_sorted(char *buffer, size_t bytes_read)
 {
-	// printf("verifySorted(): %zu %d\n",bytesRead,RECORD_SIZE);
 	int i;
-	for (i = RECORD_SIZE; i < bytesRead; i += RECORD_SIZE)
+
+	// Iterate over the buffer starting from the second record
+	for (i = RECORD_SIZE; i < bytes_read; i += RECORD_SIZE)
 	{
-		// printf("%d %d\n",i,i - RECORD_SIZE);
+		// Use memcmp to compare the hashes of the two consecutive records
 		if (memcmp(buffer + i - RECORD_SIZE, buffer + i, HASH_SIZE) > 0)
 		{
-			printf("verifySorted failed: ");
-			printBytes((uint8_t *)(buffer + i - RECORD_SIZE), HASH_SIZE);
+			printf("verify_sorted failed: ");
+			print_bytes((uint8_t *)(buffer + i - RECORD_SIZE), HASH_SIZE);
 			printf(" !< ");
-			printBytes((uint8_t *)(buffer + i), HASH_SIZE);
+			print_bytes((uint8_t *)(buffer + i), HASH_SIZE);
 			printf("\n");
 
 			return 0; // Records are not sorted
@@ -1048,47 +1046,45 @@ int verifySorted(char *buffer, size_t bytesRead)
 }
 
 // Function to verify if the final compressed file is sorted
-int verifySortedCompressed(const char *file_path)
+int verify_sorted_compressed(char *buffer, size_t bytes_read)
 {
-	FILE *file = fopen(file_path, "rb");
-	if (!file)
+	int i;
+	uint8_t previous_hash[HASH_SIZE];
+
+	for (i = 0; i < bytes_read; i += NONCE_SIZE)
 	{
-		perror("Error opening file for reading");
-		return 0;
-	}
+		// Get the current nonce
+		uint8_t *current_nonce = (uint8_t *)(buffer + i);
+		MemoRecord record;
 
-	MemoRecord currentRecord, previousRecord;
-	unsigned long long seed;
-	bool firstRecord = true;
+		generate_blake3(&record, *((unsigned long long *)current_nonce));
 
-	// Read each record (nonce) from the file and regenerate the hash
-	while (fread(&seed, sizeof(seed), 1, file) == 1)
-	{
-		// Regenerate the hash using the seed
-		generateBlake3(&currentRecord, seed);
-
-		if (!firstRecord)
+		// Compare the newly generated hash with the previous hash
+		if (i > 0) // Ensure there is a previous hash to compare
 		{
-			// Compare current hash with the previous hash
-			if (memcmp(previousRecord.hash, currentRecord.hash, RECORD_SIZE - NONCE_SIZE) > 0)
+			if (memcmp(previous_hash, record.hash, HASH_SIZE) > 0)
 			{
-				// If the current hash is smaller, the hashes are not sorted
-				fclose(file);
-				return 0;
+				printf("verify_compressed_sorted failed: ");
+				print_bytes(previous_hash, HASH_SIZE);
+				printf(" !< ");
+				print_bytes(record.hash, HASH_SIZE);
+				printf("\n");
+				return 0; // Records are not sorted
 			}
 		}
 
-		// Store the current record as the previous one for the next iteration
-		previousRecord = currentRecord;
-		firstRecord = false;
+		// Store the current hash as the previous hash for the next iteration
+		memcpy(previous_hash, record.hash, HASH_SIZE);
+		print_bytes(previous_hash, HASH_SIZE);
+		printf("\n");
 	}
 
-	fclose(file);
-	return 1; // All hashes are sorted
+	return 1; // Records are sorted
 }
 
-void printUsage()
+void print_usage()
 {
+	printf("Usage: ./vault-t <num_threads_hash> -o <num_threads_sort> -i <num_threads_io> -f <temp_filename> -q <final_filename> -m <memorysize_GB> -k <k-value>\n");
 	printf("Usage: ./vault -f <filename> -t <num_threads_hash> -o <num_threads_sort> -i <num_threads_io> -m <memorysize_GB> -s <filesize_GB>\n");
 	printf("Usage: ./vault -p <num_records> -f <filename>\n");
 	printf("Usage: ./vault -f <filename> -p 10\n");
@@ -1096,7 +1092,7 @@ void printUsage()
 	printf("Usage: ./vault -f <filename> -b 10\n");
 }
 
-void printHelp()
+void print_help()
 {
 	printf("Help:\n");
 	printf("  -t <num_threads_hash>: Specify the number of threads to generate hashes\n");
@@ -1134,16 +1130,15 @@ void *sort_bucket(void *arg)
 	ThreadArgs *args = (ThreadArgs *)arg;
 	Bucket *buckets = args->buckets;
 	int num_buckets_to_process = args->num_buckets_to_process;
-	unsigned long long offset = args->offset;
-	int threadID = args->threadID;
+	// unsigned long long offset = args->offset;
+	int thread_id = args->thread_id;
 
-	// You can perform your actual reading logic here
+	// Loop to sort buckets
 	for (int b = 0; b < num_buckets_to_process; ++b)
 	{
-		if (b == threadID)
+		if (b == thread_id)
 		{
-			// if (HASHSORT)
-			qsort(buckets[b].records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords);
+			qsort(buckets[b].records, BUCKET_SIZE, sizeof(MemoRecord), compare_memo_records);
 
 			if (DEBUG)
 			{
@@ -1166,15 +1161,15 @@ void *read_bucket(void *arg)
 	Bucket *buckets = args->buckets;
 	int num_buckets_to_process = args->num_buckets_to_process;
 	unsigned long long offset = args->offset;
-	int threadID = args->threadID;
+	int thread_id = args->thread_id;
 	int fd = args->fd;
 	if (DEBUG)
-		printf("read_bucket thread %d\n", threadID);
+		printf("read_bucket thread %d\n", thread_id);
 
-	// You can perform your actual reading logic here
+	// Loop to read buckets from disk
 	for (int b = 0; b < num_buckets_to_process; ++b)
 	{
-		if (b == threadID)
+		if (b == thread_id)
 		{
 			if (DEBUG)
 				printf("reading bucket %d at offset %llu\n", b, offset);
@@ -1185,19 +1180,17 @@ void *read_bucket(void *arg)
 			if (DEBUG)
 				printf("sem_wait(%d): found\n", b);
 
-			// printf("sleeping for 1 second to slow things down for debugging...\n");
-			// sleep(1);
-			long long bytesRead = 0;
-			bytesRead = pread(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
-			if (bytesRead < 0 || bytesRead != BUCKET_SIZE * sizeof(MemoRecord))
+			long long bytes_read = 0;
+			bytes_read = pread(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
+			if (bytes_read < 0 || bytes_read != BUCKET_SIZE * sizeof(MemoRecord))
 			{
-				printf("Error reading bucket %d from file at offset %llu; bytes read %llu when it expected %lu\n", b, offset, bytesRead, BUCKET_SIZE * sizeof(MemoRecord));
+				printf("Error reading bucket %d from file at offset %llu; bytes read %llu when it expected %lu\n", b, offset, bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 				close(fd);
 				*return_value = 1;
 				pthread_exit((void *)return_value);
 			}
 			if (DEBUG)
-				printf("[SORT] read %lld bytes, expecting %lu bytes\n", bytesRead, BUCKET_SIZE * sizeof(MemoRecord));
+				printf("[SORT] read %lld bytes, expecting %lu bytes\n", bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 			// Release the semaphore
 			if (DEBUG)
 				printf("sem_post(%d): wait\n", b);
@@ -1218,32 +1211,30 @@ void *write_bucket(void *arg)
 	Bucket *buckets = args->buckets;
 	int num_buckets_to_process = args->num_buckets_to_process;
 	unsigned long long offset = args->offset;
-	int threadID = args->threadID;
+	int thread_id = args->thread_id;
 	int fd = args->fd;
 
-	// You can perform your actual reading logic here
+	// Loop to write buckets to disk
 	for (int b = 0; b < num_buckets_to_process; ++b)
 	{
-		if (b == threadID)
+		if (b == thread_id)
 		{
 			// Wait on the semaphore
 			semaphore_wait(&semaphore_io);
 			if (DEBUG)
 				printf("writing bucket %d at offset %llu\n", b, offset);
-			// printf("sleeping for 1 second to slow things down for debugging...\n");
-			// sleep(1);
 
-			long long bytesRead = 0;
-			bytesRead = pwrite(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
-			if (bytesRead < 0 || bytesRead != BUCKET_SIZE * sizeof(MemoRecord))
+			long long bytes_read = 0;
+			bytes_read = pwrite(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
+			if (bytes_read < 0 || bytes_read != BUCKET_SIZE * sizeof(MemoRecord))
 			{
-				printf("Error writing bucket %d from file at offset %llu; bytes written %llu when it expected %lu\n", b, offset, bytesRead, BUCKET_SIZE * sizeof(MemoRecord));
+				printf("Error writing bucket %d from file at offset %llu; bytes written %llu when it expected %lu\n", b, offset, bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 				close(fd);
 				*return_value = 1;
 				pthread_exit((void *)return_value);
 			}
 			if (DEBUG)
-				printf("[SORT] write %lld bytes, expecting %lu bytes\n", bytesRead, BUCKET_SIZE * sizeof(MemoRecord));
+				printf("[SORT] write %lld bytes, expecting %lu bytes\n", bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 
 			// Release the semaphore
 			semaphore_post(&semaphore_io);
@@ -1257,19 +1248,19 @@ void *write_bucket(void *arg)
 #ifdef __linux__
 void print_free_memory()
 {
-	struct sysinfo memInfo;
-	sysinfo(&memInfo);
+	struct sysinfo mem_info;
+	sysinfo(&mem_info);
 
-	long long totalMemory = memInfo.totalram;
-	totalMemory *= memInfo.mem_unit;
+	long long total_memory = mem_info.totalram;
+	total_memory *= mem_info.mem_unit;
 
-	long long freeMemory = memInfo.freeram;
-	freeMemory *= memInfo.mem_unit;
+	long long free_memory = mem_info.freeram;
+	free_memory *= mem_info.mem_unit;
 
 	if (DEBUG)
-		printf("Total Memory: %lld bytes\n", totalMemory);
+		printf("Total Memory: %lld bytes\n", total_memory);
 	if (DEBUG)
-		printf("Free Memory: %lld bytes\n", freeMemory);
+		printf("Free Memory: %lld bytes\n", free_memory);
 }
 #endif
 
@@ -1314,11 +1305,11 @@ void print_free_memory()
 int main(int argc, char *argv[])
 {
 	Timer timer;
-	double elapsedTime;
-	double elapsedTimeHashGen;
-	double elapsedTimeSort;
-	double elapsedTimeSync;
-	double elapsedTimeCompress;
+	double elapsed_time;
+	double elapsed_time_hash_gen;
+	double elapsed_time_sort;
+	double elapsed_time_sync;
+	double elapsed_time_compress;
 
 	char *FILENAME = NULL;		 // Default value
 	char *FILENAME_FINAL = NULL; // Default value
@@ -1329,9 +1320,9 @@ int main(int argc, char *argv[])
 
 	long long print_records = 0;
 
-	uint8_t byteArray[10];
-	uint8_t *targetHash = NULL;
-	size_t prefixLength = 10;
+	uint8_t byte_array[10];
+	uint8_t *target_hash = NULL;
+	size_t prefix_length = 10;
 
 	int search_records = 0;
 
@@ -1346,7 +1337,7 @@ int main(int argc, char *argv[])
 	bool hashgen = false;
 
 	int opt;
-	while ((opt = getopt(argc, argv, "t:o:m:k:f:q:s:p:r:a:l:c:d:i:x:v:b:y:z:w:h:V")) != -1)
+	while ((opt = getopt(argc, argv, "t:o:m:k:f:q:s:p:r:a:l:c:d:i:x:v:b:y:z:w:h:V:")) != -1)
 	{
 		switch (opt)
 		{
@@ -1397,8 +1388,6 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 				if (DEBUG)
 					printf("memory_size=%lld MB\n", memory_size);
-			// HASHGEN_THREADS_BUFFER = min(memory_size*8*1024, 8*1024*1024)/ RECORD_SIZE;
-			// printf("HASHGEN_THREADS_BUFFER=%d B\n", HASHGEN_THREADS_BUFFER);
 			break;
 		case 'f':
 			FILENAME = optarg;
@@ -1449,9 +1438,8 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			// Convert the hexadecimal hash from command-line argument to binary
-
-			targetHash = hexStringToByteArray(optarg, byteArray, sizeof(byteArray));
-			if (targetHash == NULL)
+			target_hash = hex_string_to_byte_array(optarg, byte_array, sizeof(byte_array));
+			if (target_hash == NULL)
 			{
 				printf("Error: Byte array too small\n");
 				return 1;
@@ -1460,22 +1448,20 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 			{
 				printf("Hash_search=");
-				printBytes(byteArray, sizeof(byteArray));
+				print_bytes(byte_array, sizeof(byte_array));
 				printf("\n");
 			}
-
-			// printf("print_records=%lld\n", print_records);
 			break;
 		case 'l':
 			// Get the length of the prefix
-			prefixLength = atoi(optarg);
-			if (prefixLength <= 0 || prefixLength > 10)
+			prefix_length = atoi(optarg);
+			if (prefix_length <= 0 || prefix_length > 10)
 			{
 				printf("Invalid prefix length\n");
 				return 1;
 			}
 			if (benchmark == false)
-				printf("prefixLength=%zu\n", prefixLength);
+				printf("prefix_length=%zu\n", prefix_length);
 			break;
 		case 'c':
 			// Get the length of the prefix
@@ -1567,6 +1553,11 @@ int main(int argc, char *argv[])
 				printf("verify_records=%s\n", verify_records ? "true" : "false");
 			break;
 		case 'V':
+			if (optarg == NULL)
+			{
+				printf("Option -e requires an argument (true/false)\n");
+				return 1;
+			}
 			if (strcmp(optarg, "true") == 0)
 			{
 				verify_compressed_records = true;
@@ -1600,10 +1591,10 @@ int main(int argc, char *argv[])
 					printf("benchmark=%s\n", benchmark ? "true" : "false");
 			break;
 		case 'h':
-			printHelp();
+			print_help();
 			return 0;
 		default:
-			printUsage();
+			print_usage();
 			return 1;
 		}
 	}
@@ -1611,20 +1602,19 @@ int main(int argc, char *argv[])
 	if (FILENAME == NULL)
 	{
 		printf("Error: filename (-f) is mandatory.\n");
-		printUsage();
+		print_usage();
 		return 1;
 	}
-	if (FILENAME != NULL && print_records == 0 && verify_records == false && targetHash == NULL && verify_records_num == 0 && search_records == 0 && (NUM_THREADS <= 0 || num_threads_sort <= 0 || FILESIZE < 0 || memory_size <= 0))
+	if (FILENAME != NULL && print_records == 0 && verify_records == false && verify_compressed_records == false && target_hash == NULL && verify_records_num == 0 && search_records == 0 && (NUM_THREADS <= 0 || num_threads_sort <= 0 || FILESIZE < 0 || memory_size <= 0))
 	{
 		printf("Error: mandatory command line arguments have not been used, try -h for more help\n");
-		printUsage();
+		print_usage();
 		return 1;
 	}
 
-	const char *path = FILENAME;			 // Example path, you can change it to any valid path
-	const char *path_final = FILENAME_FINAL; // Example path, you can change it to any valid path
+	const char *path = FILENAME;
 
-	unsigned long long bytes_free = getDiskSpace(path);
+	unsigned long long bytes_free = get_disk_space(path);
 	if (bytes_free > 0)
 	{
 		if (DEBUG)
@@ -1654,9 +1644,7 @@ int main(int argc, char *argv[])
 	long long EXPECTED_TOTAL_FLUSHES = 0;
 	bool found_good_config = false;
 
-	// memory and file sizes must be divisible
-
-	// need to find largest memory_size that perfectly divides FILESIZE
+	// piece of code to find memory size that is a multiple of FILESIZE
 	long long right_memory_size = 1;
 	for (int i = memory_size; i > 0; i--)
 	{
@@ -1668,13 +1656,16 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+
+	// assign memory size to be a multiple of FILESIZE
 	memory_size = right_memory_size;
 	int ratio = (int)ceil((double)FILESIZE / memory_size);
-	// memory_size = FILESIZE/ratio;
 
 	if (benchmark == false)
 		if (DEBUG)
 			printf("ratio=%d\n", ratio);
+
+	// convert memory size and FILESIZE to bytes
 	long long FILESIZE_byte = FILESIZE * 1024 * 1024;
 	long long memory_size_byte = memory_size * 1024 * 1024;
 
@@ -1689,7 +1680,6 @@ int main(int argc, char *argv[])
 	if (DEBUG)
 		printf("FILESIZE=%lld\n", FILESIZE);
 
-	// DEBUG = true;
 	if (hashgen)
 	{
 		for (WRITE_SIZE = 1024 * 1024 / ratio; WRITE_SIZE > 0; WRITE_SIZE = WRITE_SIZE / 2)
@@ -1787,12 +1777,10 @@ int main(int argc, char *argv[])
 
 				found_good_config = true;
 				break;
-				// return 0;
 			}
 		}
 
 		if (found_good_config == false)
-		// if (found_good_config == true)
 		{
 			printf("no valid configuration found... this should never happen\n");
 
@@ -1800,8 +1788,6 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 	}
-
-	// DEBUG = false;
 
 	if (benchmark == false)
 		print_free_memory();
@@ -1829,24 +1815,82 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	// printf("exiting...\n");
-	// exit(EXIT_FAILURE);
-
+	// verify uncompressed hashes from file
 	if (verify_records)
 	{
-
-		resetTimer(&timer);
-		int VERIFY_BUFFER_SIZE = 1000000 - RECORD_SIZE;
+		reset_timer(&timer);
+		int VERIFY_BUFFER_SIZE = 1000000 - RECORD_SIZE; // value that can hold multiple MemoRecord structures minus the size of one MemoRecord, allowing room for reading multiple records at once.
 		int fd;
-		char *buffer = (char *)malloc(VERIFY_BUFFER_SIZE);
-		ssize_t bytesRead;
-		off_t offset = 0;
+		char *buffer = (char *)malloc(VERIFY_BUFFER_SIZE); // Allocate memory for the verification buffer
+		ssize_t bytes_read;								   // Variable to store the number of bytes read from the file
+		off_t offset = 0;								   // Variable to track the current offset in the file
 
 		if (buffer == NULL)
 		{
 			fprintf(stderr, "Memory allocation failed 2\n");
 			return 1;
 		}
+
+		// Open the file in read-only mode
+		fd = open(FILENAME, O_RDONLY);
+		if (fd == -1)
+		{
+			perror("Unable to open file");
+			free(buffer);
+			return 1;
+		}
+
+		int num_reads = 0;
+		bool all_sorted = true;
+
+		// Read the file in chunks of BUFFER_SIZE bytes until the end of file
+		while ((bytes_read = read_chunk(fd, buffer, offset, VERIFY_BUFFER_SIZE)) > 0)
+		{
+			//  Verify if the records in the buffer are sorted
+			if (!verify_sorted(buffer, bytes_read))
+			{
+				printf("Records are not sorted at %lld offset.\n", offset);
+				all_sorted = false;
+				break;
+			}
+
+			// Update the offset for the next read
+			offset += bytes_read;
+			num_reads++;
+		}
+
+		if (bytes_read == -1)
+		{
+			fprintf(stderr, "Error reading buffer after reading %lld bytes\n", offset);
+		}
+
+		// If all records were sorted, print a success message
+		if (all_sorted)
+			printf("Read %lld bytes and found all records are sorted.\n", offset);
+
+		// Close the file descriptor
+		close(fd);
+		free(buffer); // Free the allocated buffer
+
+		elapsed_time = get_timer(&timer);
+		double progress = 100.0;
+		double remaining_time = 0.0;
+		double throughput_MB = (offset / (1024 * 1024)) / elapsed_time;
+
+		printf("[%.3lf][VERIFY]: %.2lf%% completed, ETA %.1lf seconds, %d flushes, %.1lf MB/sec\n", elapsed_time, progress, remaining_time, num_reads, throughput_MB);
+
+		return 0;
+	}
+	// verify compressed hashes from file
+	else if (verify_compressed_records)
+	{
+		reset_timer(&timer);
+		int fd;
+		int VERIFY_BUFFER_SIZE = 1000000 - NONCE_SIZE;
+		char *buffer = (char *)malloc(VERIFY_BUFFER_SIZE); // Allocate memory for the verification buffer
+		ssize_t bytes_read;								   // Variable to store the number of bytes read from the file
+		off_t offset = 0;								   // Variable to track the current offset in the file
+		bool all_sorted = true;
 
 		fd = open(FILENAME, O_RDONLY);
 		if (fd == -1)
@@ -1855,59 +1899,37 @@ int main(int argc, char *argv[])
 			free(buffer);
 			return 1;
 		}
-		int num_reads = 0;
-		bool all_sorted = true;
+
 		// Read the file in chunks of BUFFER_SIZE bytes until the end of file
-		while ((bytesRead = readChunk(fd, buffer, offset, VERIFY_BUFFER_SIZE)) > 0)
+		while ((bytes_read = read_chunk(fd, buffer, offset, VERIFY_BUFFER_SIZE)) > 0)
 		{
-			// printf("just read %zd bytes, total bytes %lld...\n",bytesRead,offset);
-			//  Verify if the records in the buffer are sorted
-			if (!verifySorted(buffer, bytesRead))
+			// Verify if the records in the buffer are sorted
+			if (!verify_sorted_compressed(buffer, bytes_read))
 			{
-				printf("Records are not sorted at %lld offset.\n", offset);
+				printf("Compressed records are not sorted at %lld offset.\n", offset);
 				all_sorted = false;
 				break;
 			}
 
 			// Update the offset for the next read
-			offset += bytesRead;
-			num_reads++;
+			offset += bytes_read;
 		}
 
-		if (bytesRead == -1)
+		if (bytes_read == -1)
 		{
 			fprintf(stderr, "Error reading buffer after reading %lld bytes\n", offset);
 		}
 
+		// If all compressed records were sorted, print a success message
 		if (all_sorted)
-			printf("Read %lld bytes and found all records are sorted.\n", offset);
+			printf("Read %lld bytes and found all compressed records are sorted.\n", offset);
+
+		// Close the file descriptor
 		close(fd);
-		free(buffer);
-		elapsedTime = getTimer(&timer);
-		double progress = 100.0;
-		double remaining_time = 0.0;
-		double throughput_MB = (offset / (1024 * 1024)) / elapsedTime;
+		free(buffer); // Free the allocated buffer
 
-		printf("[%.3lf][VERIFY]: %.2lf%% completed, ETA %.1lf seconds, %d flushes, %.1lf MB/sec\n", elapsedTime, progress, remaining_time, num_reads, throughput_MB);
-
-		return 0;
-	}
-	else if (verify_compressed_records)
-	{
-		resetTimer(&timer);
-
-		if (!verifySortedCompressed(FILENAME)) // Use your function here
-		{
-			printf("Compressed records are not sorted.\n");
-		}
-		else
-		{
-			printf("All compressed records are sorted.\n");
-		}
-
-		elapsedTime = getTimer(&timer);
-		// Output elapsed time or any other necessary information
-		printf("Compressed verification completed in %.3lf seconds.\n", elapsedTime);
+		elapsed_time = get_timer(&timer);
+		printf("Compressed verification completed in %.3lf seconds.\n", elapsed_time);
 	}
 	// print records
 	else if (print_records > 0)
@@ -1916,18 +1938,18 @@ int main(int argc, char *argv[])
 		if (head)
 		{
 			printf("Printing first %lld of file '%s'...\n", print_records, FILENAME);
-			printFile(FILENAME, print_records);
+			print_file(FILENAME, print_records);
 		}
 		if (tail)
 		{
 			printf("Printing first %lld of file '%s'...\n", print_records, FILENAME);
-			printFileTail(FILENAME, print_records);
+			print_file_tail(FILENAME, print_records);
 		}
 
 		return 0;
 	}
 	// search hash
-	else if (targetHash != NULL)
+	else if (target_hash != NULL)
 	{
 		// Open file for reading
 		int fd = open(FILENAME, O_RDONLY);
@@ -1936,61 +1958,49 @@ int main(int argc, char *argv[])
 			perror("Error opening file for reading");
 			return 1;
 		}
-		long long filesize = getFileSize(FILENAME);
+		long long filesize = get_file_size(FILENAME);
 
-		// Timing variables
-		// struct timespec start, end;
-		// double elapsedTime;
-
-		// Get start time
-		//  clock_gettime(CLOCK_MONOTONIC, &start);
-		//  gettimeofday(&start_all_walltime, NULL);
-		resetTimer(&timer);
+		reset_timer(&timer);
 
 		// Perform binary search
-		int seekCount = 0;
-		int index = binarySearch(targetHash, prefixLength, fd, filesize, &seekCount, false);
+		int seek_count = 0;
+		int index = binary_search(target_hash, prefix_length, fd, filesize, &seek_count, false);
 
 		// Get end time
-		// clock_gettime(CLOCK_MONOTONIC, &end);
-
-		// Calculate elapsed time in microseconds
-		// elapsedTime = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-		elapsedTime = getTimer(&timer);
+		elapsed_time = get_timer(&timer);
 
 		if (index >= 0)
 		{
 			// Hash found
-			MemoRecord foundNumber;
+			MemoRecord found_number;
 			lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-			read(fd, &foundNumber, sizeof(MemoRecord));
+			read(fd, &found_number, sizeof(MemoRecord));
 
 			printf("Hash found at index: %d\n", index);
-			printf("Number of lookups: %d\n", seekCount);
+			printf("Number of lookups: %d\n", seek_count);
 			printf("Hash search: ");
-			printBytes(byteArray, sizeof(byteArray));
-			printf("/%zu\n", prefixLength);
-			// printf("Prefix length: %zu\n", prefixLength);
+			print_bytes(byte_array, sizeof(byte_array));
+			printf("/%zu\n", prefix_length);
+			// printf("Prefix length: %zu\n", prefix_length);
 			printf("Hash found : ");
-			printBytes(foundNumber.hash, sizeof(foundNumber.hash));
+			print_bytes(found_number.hash, sizeof(found_number.hash));
 			printf("\n");
 
-			unsigned long long nonceValue = 0;
-			for (int i = 0; i < sizeof(foundNumber.nonce); i++)
+			unsigned long long nonce_value = 0;
+			for (int i = 0; i < sizeof(found_number.nonce); i++)
 			{
-				nonceValue |= (unsigned long long)foundNumber.nonce[i] << (i * 8);
+				nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 			}
 
-			printf("Nonce: %llu/", nonceValue);
-			// printf("Nonce (hex): ");
-			printBytes(foundNumber.nonce, sizeof(foundNumber.nonce));
+			printf("Nonce: %llu/", nonce_value);
+			print_bytes(found_number.nonce, sizeof(found_number.nonce));
 			printf("\n");
 		}
 		else
 		{
-			printf("Hash not found after %d lookups\n", seekCount);
+			printf("Hash not found after %d lookups\n", seek_count);
 		}
-		printf("Time taken: %.2f microseconds\n", elapsedTime);
+		printf("Time taken: %.2f microseconds\n", elapsed_time);
 
 		// Close the file
 		close(fd);
@@ -2001,16 +2011,15 @@ int main(int argc, char *argv[])
 	else if (search_records > 0)
 	{
 		printf("searching for random hashes\n");
-		size_t numberLookups = search_records;
-		if (numberLookups <= 0)
+		size_t number_lookups = search_records;
+		if (number_lookups <= 0)
 		{
 			printf("Invalid number of lookups\n");
 			return 1;
 		}
 
 		// Get the length of the prefix
-		// size_t prefixLength = atoi(argv[2]);
-		if (prefixLength <= 0 || prefixLength > 10)
+		if (prefix_length <= 0 || prefix_length > 10)
 		{
 			printf("Invalid prefix length\n");
 			return 1;
@@ -2023,68 +2032,57 @@ int main(int argc, char *argv[])
 			perror("Error opening file for reading");
 			return 1;
 		}
-		long filesize = getFileSize(FILENAME);
+		long filesize = get_file_size(FILENAME);
 
 		// Seed the random number generator with the current time
 		srand((unsigned int)time(NULL));
-		int seekCount = 0;
+		int seek_count = 0;
 		int found = 0;
 		int notfound = 0;
 
-		// Timing variables
-		// struct timespec start, end;
-		// double elapsedTime;
+		reset_timer(&timer);
 
-		// Get start time
-		// clock_gettime(CLOCK_MONOTONIC, &start);
-		resetTimer(&timer);
-
-		for (int searchNum = 0; searchNum < numberLookups; searchNum++)
+		for (int search_num = 0; search_num < number_lookups; search_num++)
 		{
-
-			// Convert the hexadecimal hash from command-line argument to binary
-			// char hexString[length * 2 + 1];
-
-			uint8_t byteArray[HASH_SIZE];
+			uint8_t byte_array[HASH_SIZE];
 			for (size_t i = 0; i < HASH_SIZE; ++i)
 			{
-				byteArray[i] = rand() % 256;
+				byte_array[i] = rand() % 256;
 			}
 
-			uint8_t *targetHash = byteArray;
-			if (targetHash == NULL)
+			uint8_t *target_hash = byte_array;
+			if (target_hash == NULL)
 			{
 				printf("Error: Byte array too small\n");
 				return 1;
 			}
 
 			// Perform binary search
-			int index = binarySearch(targetHash, prefixLength, fd, filesize, &seekCount, true);
+			int index = binary_search(target_hash, prefix_length, fd, filesize, &seek_count, true);
 
 			if (index >= 0)
 			{
 				// Hash found
-				MemoRecord foundNumber;
+				MemoRecord found_number;
 				lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-				read(fd, &foundNumber, sizeof(MemoRecord));
+				read(fd, &found_number, sizeof(MemoRecord));
 
 				found++;
 				if (DEBUG)
 				{
 					printf("Hash found at index: %d\n", index);
 					printf("Hash found : ");
-					printBytes(foundNumber.hash, sizeof(foundNumber.hash));
+					print_bytes(found_number.hash, sizeof(found_number.hash));
 					printf("\n");
 
-					unsigned long long nonceValue = 0;
-					for (int i = 0; i < sizeof(foundNumber.nonce); i++)
+					unsigned long long nonce_value = 0;
+					for (int i = 0; i < sizeof(found_number.nonce); i++)
 					{
-						nonceValue |= (unsigned long long)foundNumber.nonce[i] << (i * 8);
+						nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 					}
 
-					printf("Nonce: %llu/", nonceValue);
-					// printf("Nonce (hex): ");
-					printBytes(foundNumber.nonce, sizeof(foundNumber.nonce));
+					printf("Nonce: %llu/", nonce_value);
+					print_bytes(found_number.nonce, sizeof(found_number.nonce));
 					printf("\n");
 				}
 			}
@@ -2097,26 +2095,21 @@ int main(int argc, char *argv[])
 
 			if (DEBUG)
 			{
-				printf("Number of lookups: %d\n", seekCount);
+				printf("Number of lookups: %d\n", seek_count);
 				printf("Hash search: ");
-				printBytes(byteArray, sizeof(byteArray));
-				printf("/%zu\n", prefixLength);
-				// printf("Prefix length: %zu\n", prefixLength);
+				print_bytes(byte_array, sizeof(byte_array));
+				printf("/%zu\n", prefix_length);
+				// printf("Prefix length: %zu\n", prefix_length);
 			}
 		}
 
-		// Get end time
-		// clock_gettime(CLOCK_MONOTONIC, &end);
-
-		// Calculate elapsed time in microseconds
-		// elapsedTime = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-		elapsedTime = getTimer(&timer);
-		printf("Number of total lookups: %zu\n", numberLookups);
+		elapsed_time = get_timer(&timer);
+		printf("Number of total lookups: %zu\n", number_lookups);
 		printf("Number of searches found: %d\n", found);
 		printf("Number of searches not found: %d\n", notfound);
-		printf("Number of total seeks: %d\n", seekCount);
-		printf("Time taken: %.2f ms/lookup\n", elapsedTime * 1000.0 / numberLookups);
-		printf("Throughput lookups/sec: %.2f\n", numberLookups / elapsedTime);
+		printf("Number of total seeks: %d\n", seek_count);
+		printf("Time taken: %.2f ms/lookup\n", elapsed_time * 1000.0 / number_lookups);
+		printf("Throughput lookups/sec: %.2f\n", number_lookups / elapsed_time);
 
 		// Close the file
 		close(fd);
@@ -2127,8 +2120,8 @@ int main(int argc, char *argv[])
 	else if (verify_records_num > 0)
 	{
 		printf("verifying random records against BLAKE3 hashes\n");
-		size_t numberLookups = verify_records_num;
-		if (numberLookups <= 0)
+		size_t number_lookups = verify_records_num;
+		if (number_lookups <= 0)
 		{
 			printf("Invalid number of lookups\n");
 			return 1;
@@ -2141,59 +2134,47 @@ int main(int argc, char *argv[])
 			perror("Error opening file for reading");
 			return 1;
 		}
-		long filesize = getFileSize(FILENAME);
+		long filesize = get_file_size(FILENAME);
 		unsigned long long num_records_in_file = filesize / RECORD_SIZE;
 
 		// Seed the random number generator with the current time
 		srand((unsigned int)time(NULL));
-		int seekCount = 0;
+		// int seek_count = 0;
 		int found = 0;
 		int notfound = 0;
 
-		// Timing variables
-		// struct timespec start, end;
-		// double elapsedTime;
+		reset_timer(&timer);
 
-		// Get start time
-		// clock_gettime(CLOCK_MONOTONIC, &start);
-		resetTimer(&timer);
-
-		for (int searchNum = 0; searchNum < numberLookups; searchNum++)
+		for (int search_num = 0; search_num < number_lookups; search_num++)
 		{
 			int index = rand() % num_records_in_file;
 
-			MemoRecord foundNumber;
-			MemoRecord foundNumber2;
+			MemoRecord found_number;
+			MemoRecord found_number2;
 			lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-			read(fd, &foundNumber, sizeof(MemoRecord));
+			read(fd, &found_number, sizeof(MemoRecord));
 
-			unsigned long long nonceValue = 0;
-			for (int i = 0; i < sizeof(foundNumber.nonce); i++)
+			unsigned long long nonce_value = 0;
+			for (int i = 0; i < sizeof(found_number.nonce); i++)
 			{
-				nonceValue |= (unsigned long long)foundNumber.nonce[i] << (i * 8);
+				nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 			}
 
-			generateBlake3(&foundNumber2, nonceValue);
+			generate_blake3(&found_number2, nonce_value);
 
 			if (DEBUG)
 			{
 				printf("Hash found at index: %d\n", index);
 				printf("Hash found : ");
-				printBytes(foundNumber.hash, sizeof(foundNumber.hash));
+				print_bytes(found_number.hash, sizeof(found_number.hash));
 				printf("\n");
 
-				// unsigned long long nonceValue = 0;
-				// for (int i = 0; i < sizeof(foundNumber.nonce); i++) {
-				//	nonceValue |= (unsigned long long)foundNumber.nonce[i] << (i * 8);
-				// }
-
-				printf("Nonce: %llu/", nonceValue);
-				// printf("Nonce (hex): ");
-				printBytes(foundNumber.nonce, sizeof(foundNumber.nonce));
+				printf("Nonce: %llu/", nonce_value);
+				print_bytes(found_number.nonce, sizeof(found_number.nonce));
 				printf("\n");
 			}
 
-			if (memcmp(&foundNumber, &foundNumber2, sizeof(MemoRecord)) == 0)
+			if (memcmp(&found_number, &found_number2, sizeof(MemoRecord)) == 0)
 			{
 				if (DEBUG)
 					printf("hash verification succesful\n");
@@ -2207,34 +2188,27 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		// Get end time
-		// clock_gettime(CLOCK_MONOTONIC, &end);
-
-		// Calculate elapsed time in microseconds
-		// elapsedTime = (end.tv_sec - start.tv_sec) * 1e6 + (end.tv_nsec - start.tv_nsec) / 1e3;
-		elapsedTime = getTimer(&timer);
-		printf("Number of total verifications: %zu\n", numberLookups);
+		elapsed_time = get_timer(&timer);
+		printf("Number of total verifications: %zu\n", number_lookups);
 		printf("Number of verifications successful: %d\n", found);
 		printf("Number of verifications failed: %d\n", notfound);
-		printf("Time taken: %.2f ms/verification\n", elapsedTime * 1000.0 / numberLookups);
-		printf("Throughput verifications/sec: %.2f\n", numberLookups / elapsedTime);
+		printf("Time taken: %.2f ms/verification\n", elapsed_time * 1000.0 / number_lookups);
+		printf("Throughput verifications/sec: %.2f\n", number_lookups / elapsed_time);
 
 		// Close the file
 		close(fd);
 
 		return 0;
 	}
-
 	// hash generation
 	else
 	{
-
 		int fd = -1;
 		double last_progress_update = 0.0;
 		long long last_progress_i = 0;
 		if (HASHGEN == true)
 		{
-
+			// configuration file setup
 			const char *EXTENSION = ".config";
 			char *FILENAME_CONFIG = (char *)malloc((strlen(FILENAME) + strlen(EXTENSION)) * sizeof(char));
 
@@ -2269,8 +2243,7 @@ int main(int argc, char *argv[])
 				if (DEBUG)
 					printf("hash generation and sorting...\n");
 
-			// Open file for writing
-			// int fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC  , 0644);
+			// Open the main file for writing, creating it if it doesn't exist and truncating if it does
 			fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC, 0644);
 			if (fd < 0)
 			{
@@ -2278,10 +2251,10 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 
-			resetTimer(&timer);
+			reset_timer(&timer); // Start the timer for performance measurement
 
 			// Array to hold the generated random records
-			MemoRecord record;
+			// MemoRecord record;
 			// Allocate memory for the array of Bucket structs
 			Bucket *buckets = malloc(NUM_BUCKETS * sizeof(Bucket));
 			if (buckets == NULL)
@@ -2289,25 +2262,17 @@ int main(int argc, char *argv[])
 				printf("2: Error allocating memory: %lu\n", NUM_BUCKETS * sizeof(Bucket));
 				return 1;
 			}
-			// printf("2: XXX allocating memory: %lu %d %lu\n",NUM_BUCKETS* sizeof(Bucket),NUM_BUCKETS,sizeof(Bucket));
-			// exit(0);
 
 			// Initialize each bucket
 			for (int i = 0; i < NUM_BUCKETS; ++i)
 			{
 				// Allocate memory for the records in each bucket
-				// TODO
-				// should double check BUCKET_SIZE * sizeof(MemoRecord) logic if its indeed correct
+				// TODO: should double check BUCKET_SIZE * sizeof(MemoRecord) logic if its indeed correct
 				buckets[i].records = malloc(WRITE_SIZE);
-				// modified due to failure in memory allocation
-				// buckets[i].records = malloc(BUCKET_SIZE);
-				// printf("3 XXX allocating memory %llu; %d %d\n",WRITE_SIZE,NUM_BUCKETS,i);
-				// exit(0);
 				if (buckets[i].records == NULL)
 				{
 					printf("3 Error allocating memory %lu; %d %d\n", BUCKET_SIZE * sizeof(MemoRecord), NUM_BUCKETS, i);
 
-					// printf("3 Error allocating memory %lu; %lu %d\n",BUCKET_SIZE ,NUM_BUCKETS,i);
 					//  Free previously allocated memory
 					for (int j = 0; j < i; ++j)
 					{
@@ -2323,231 +2288,198 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 				if (DEBUG)
 					printf("initializing circular array...\n");
-			// Initialize the circular array
-			struct CircularArray circularArray;
-			initCircularArray(&circularArray);
 
+			// Initialize the circular array for managing records
+			struct CircularArray circular_array;
+			init_circular_array(&circular_array);
+
+			// Print debug message before creating thread data structure
 			if (benchmark == false)
 				if (DEBUG)
 					printf("Create thread data structure...\n");
-			// Create thread data structure
-			struct ThreadData threadData[NUM_THREADS];
 
+			// Create thread data structure to hold thread-specific data
+			struct ThreadData thread_data[NUM_THREADS];
+
+			// Print debug message before creating hash generation threads
 			if (benchmark == false)
 				if (DEBUG)
 					printf("Create hash generation threads...\n");
-			// Create threads
+
+			// Create threads for parallel hash generation
 			pthread_t threads[NUM_THREADS];
 			for (int i = 0; i < NUM_THREADS; i++)
 			{
-				threadData[i].circularArray = &circularArray;
-				threadData[i].threadID = i;
-				pthread_create(&threads[i], NULL, arrayGenerationThread, &threadData[i]);
+				thread_data[i].circular_array = &circular_array;							 // Assign the circular array to each thread
+				thread_data[i].thread_id = i;												 // Set the thread ID
+				pthread_create(&threads[i], NULL, array_generation_thread, &thread_data[i]); // Start the thread
 			}
+
+			// Print debug message after thread creation
 			if (benchmark == false)
 				if (DEBUG)
 					printf("Hash generation threads created...\n");
 
-			unsigned long long totalFlushes = 0;
+			unsigned long long total_flushes = 0; // Track total number of flushes
+			last_progress_i = 0;				  // Reset last processed index
 
-			// Measure time taken for hash generation using gettimeofday
-			// struct timeval start_time, end_time, last_progress_time;
-			// gettimeofday(&start_time, NULL);
-			// gettimeofday(&last_progress_time, NULL);
-			last_progress_i = 0;
-			// double elapsed_time = 0.0;
-
-			elapsedTime = getTimer(&timer);
-			last_progress_update = elapsedTime;
-
-			// Start timing
-			// clock_t start = clock();
+			elapsed_time = get_timer(&timer);	 // Get initial elapsed time
+			last_progress_update = elapsed_time; // Update last progress time
 
 			// Write random records to buckets based on their first 2-byte prefix
-			unsigned long long i = 0;
-			int flushedBucketsNeeded = NUM_BUCKETS;
-			// MemoRecord consumedArray[BATCH_SIZE];
-			MemoRecord *consumedArray;
-			consumedArray = malloc(BATCH_SIZE * sizeof(MemoRecord));
+			unsigned long long i = 0;											  // Initialize index for tracking records
+			int flushed_buckets_needed = NUM_BUCKETS;							  // Track how many buckets need flushing
+			MemoRecord *consumed_array = malloc(BATCH_SIZE * sizeof(MemoRecord)); // Array for consumed records
 
 			if (DEBUG)
 				printf("BATCH_SIZE=%zu\n", BATCH_SIZE);
 			if (DEBUG)
-				printf("flushedBucketsNeeded=%d\n", flushedBucketsNeeded);
+				printf("flushed_buckets_needed=%d\n", flushed_buckets_needed);
 
-			while (flushedBucketsNeeded > 0)
-			// for (unsigned long long i = 0; i < NUM_ENTRIES; i++)
+			while (flushed_buckets_needed > 0) // Continue processing until all buckets have been flushed
 			{
+				if (DEBUG)
+					printf("remove_batch()...\n"); // Indicate that a batch is being removed from the circular array
+
+				remove_batch(&circular_array, consumed_array); // Remove a batch of records from the circular array and store in consumed_array
 
 				if (DEBUG)
-					printf("removeBatch()...\n");
-				removeBatch(&circularArray, consumedArray);
+					printf("processing batch of size %ld...\n", BATCH_SIZE); // Log the size of the processed batch
 
-				if (DEBUG)
-					printf("processing batch of size %ld...\n", BATCH_SIZE);
 				// this sequential loop is probably a bottleneck
 				for (int b = 0; b < BATCH_SIZE; b++)
 				{
+					// Get the index of the bucket where the current record should be stored
+					off_t bucket_index = get_bucket_index(consumed_array[b].hash, PREFIX_SIZE);
 
-					// Generate a random record
-					// generateBlake3(&record, i + 1);
+					Bucket *bucket = &buckets[bucket_index]; // Reference the corresponding bucket
 
-					// Calculate the bucket index based on the first 2-byte prefix
-					// int bucketIndex = (record.hash[0] << 8) | record.hash[1];
-
-					off_t bucketIndex = getBucketIndex(consumedArray[b].hash, PREFIX_SIZE);
-					// printf("bucketIndex=%lld\n",bucketIndex);
-
-					// Add the random record to the corresponding bucket
-					Bucket *bucket = &buckets[bucketIndex];
+					// Check if the bucket has space for more records
 					if (bucket->count < WRITE_SIZE / RECORD_SIZE)
 					{
-						// printf("bucket->count*RECORD_SIZE=%zu WRITE_SIZE=%lld\n",bucket->count*RECORD_SIZE,WRITE_SIZE);
-						bucket->records[bucket->count++] = (MemoRecord)consumedArray[b];
+						// Add the current record to the bucket
+						bucket->records[bucket->count++] = (MemoRecord)consumed_array[b];
 					}
-					else
+					else // If the bucket is full
 					{
-						// Bucket is full, write it to disk
+						// Check if this bucket can be flushed to disk
 						if (bucket->flush < FLUSH_SIZE)
 						{
-							// should parallelize the sort and write to disk here...
+							// Note: should parallelize the sort and write to disk here...
+
 							// if all buckets fit in memory, sort them now before writing to disk
 							if (FLUSH_SIZE == 1)
 							{
-								// Sort the bucket contents
 								if (DEBUG)
 									printf("sorting bucket before flush %d...\n", b);
 
-								// if (num_threads_sort == 1)
-								//{
+								// Sort the bucket contents if sorting is enabled
 								if (HASHSORT)
-									qsort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords);
-								// heapsort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords);
-								// parallel_sort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compareMemoRecords, NUM_THREADS, PARTITION_SIZE, QSORT_SIZE, DEBUG);
+									qsort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compare_memo_records);
+
+								// Alternative sorting methods
+								// heapsort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compare_memo_records);
+								// parallel_sort(bucket->records, BUCKET_SIZE, sizeof(MemoRecord), compare_memo_records, NUM_THREADS, PARTITION_SIZE, QSORT_SIZE, DEBUG);
 								// tbb::parallel_sort(bucket->records, bucket->records + BUCKET_SIZE*sizeof(MemoRecord), compare);
 								// parallel_quicksort(bucket->records, BUCKET_SIZE);
 								// parallel_merge_sort(bucket->records, BUCKET_SIZE);
-
 								//}
 								// else
 								//{
-
 								// Bucket *bucketBuffer = malloc(BUCKET_SIZE*sizeof(MemoRecord));
 								// memcpy(&bucketBuffer, &bucket, BUCKET_SIZE*sizeof(MemoRecord));
-
 								//}
 							}
 
-							// printf("writeBucketToDisk(): bucketIndex=%lld\n",bucketIndex);
-							writeBucketToDisk(bucket, fd, bucketIndex);
+							// Write the contents of the bucket to disk
+							write_bucket_to_disk(bucket, fd, bucket_index);
 
-							// Reset the bucket count
+							// Reset the bucket count after flushing
 							bucket->count = 0;
-							bucket->flush++;
+							bucket->flush++; // Increment flush count for this bucket
 							if (bucket->flush == FLUSH_SIZE)
-								flushedBucketsNeeded--;
+								flushed_buckets_needed--; // Decrease the count of buckets that still need flushing
 
-							totalFlushes++;
+							total_flushes++; // Increment the total number of flushes
 						}
 					}
 				}
 
-				// gettimeofday(&end_time, NULL);
-				elapsedTime = getTimer(&timer);
-				// elapsed_time = (end_time.tv_sec - start_time.tv_sec) +
-				//                       (end_time.tv_usec - start_time.tv_usec) / 1.0e6;
+				elapsed_time = get_timer(&timer);
 
-				if (elapsedTime > last_progress_update + 1.0)
+				// Update progress every second
+				if (elapsed_time > last_progress_update + 1.0)
 				{
-					double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
-					last_progress_update = elapsedTime;
+					double elapsed_time_since_last_progress_update = elapsed_time - last_progress_update;
+					last_progress_update = elapsed_time; // Update the last progress timestamp
 
 					// Calculate and print estimated completion time
 					double progress = min(i * 100.0 / NUM_ENTRIES, 100.0);
-					double remaining_time = elapsedTime / (progress / 100.0) - elapsedTime;
+					double remaining_time = elapsed_time / (progress / 100.0) - elapsed_time;
 
 					if (benchmark == false)
-						printf("[%.0lf][HASHGEN]: %.2lf%% completed, ETA %.1lf seconds, %llu/%llu flushes, %.1lf MB/sec\n", floor(elapsedTime), progress, remaining_time, totalFlushes, EXPECTED_TOTAL_FLUSHES, ((i - last_progress_i) / elapsed_time_since_last_progress_update) * sizeof(MemoRecord) / (1024 * 1024));
+						printf("[%.0lf][HASHGEN]: %.2lf%% completed, ETA %.1lf seconds, %llu/%llu flushes, %.1lf MB/sec\n", floor(elapsed_time), progress, remaining_time, total_flushes, EXPECTED_TOTAL_FLUSHES, ((i - last_progress_i) / elapsed_time_since_last_progress_update) * sizeof(MemoRecord) / (1024 * 1024));
 
 					last_progress_i = i;
-					// gettimeofday(&last_progress_time, NULL);
 				}
-				// i++;
-				i += BATCH_SIZE;
+				i += BATCH_SIZE; // Increment the processed index by the batch size
 			}
 
-			// gettimeofday(&end_time, NULL);
-			//         double elapsed_time_hashgen = (end_time.tv_sec - start_time.tv_sec) +
-			//                               (end_time.tv_usec - start_time.tv_usec) / 1.0e6;
-
 			if (DEBUG)
-				printf("finished generating %llu hashes and wrote them to disk using %llu flushes...\n", i, totalFlushes);
+				printf("finished generating %llu hashes and wrote them to disk using %llu flushes...\n", i, total_flushes);
 
 			// Free memory allocated for records in each bucket
 			for (int i = 0; i < NUM_BUCKETS; i++)
 			{
 				free(buckets[i].records);
 			}
-			free(buckets);
+			free(buckets); // Free the array of buckets
 
-			free(consumedArray);
+			free(consumed_array); // Free the consumed array holding the batch of records
 
-			elapsedTimeHashGen = getTimer(&timer);
+			elapsed_time_hash_gen = get_timer(&timer); // Record the total time taken for hash generation
 		}
-		else
+		else // if HASHGEN is false
 		{
 			if (benchmark == false)
 				printf("opening file for sorting...\n");
 
-			// Open file for writing
-			// int fd = open(FILENAME, O_RDWR | O_CREAT | O_TRUNC  , 0644);
+			// Open the file for reading/writing, with large file support
 			fd = open(FILENAME, O_RDWR | O_LARGEFILE, 0644);
-			if (fd < 0)
+			if (fd < 0) // Check if the file opened successfully
 			{
 				perror("Error opening file for reading/writing");
 				return 1;
 			}
 
-			resetTimer(&timer);
+			reset_timer(&timer); // Reset the timer for measuring time taken
 		}
 
-		bool doSort = true;
+		bool do_sort = true;
 
-		elapsedTime = getTimer(&timer);
-		last_progress_update = elapsedTime;
-		double sort_start = elapsedTime;
+		elapsed_time = get_timer(&timer);
+		last_progress_update = elapsed_time;
+		double sort_start = elapsed_time;
 
 		if (DEBUG)
 			print_free_memory();
 
 		if (DEBUG)
 		{
+			// Print planned memory allocations for various components
 			printf("planning to allocate 1: %lu bytes memory...", num_threads_sort * sizeof(Bucket));
 			printf("planning to allocate 2: %lu bytes memory...", num_threads_sort * BUCKET_SIZE * sizeof(MemoRecord));
 			printf("planning to allocate 3: %lu bytes memory...", num_threads_sort * sizeof(ThreadArgs));
 			printf("planning to allocate 4: %lu bytes memory...", num_threads_sort * sizeof(pthread_t));
 		}
 
-		// make sure everything is flushed to disk before continuing to sort
-		// maybe enable, doesn't seem to be needed
-		// Flush data to disk
-		// printf("flushing all writes to disk...\n");
-		//    if (fsync(fd) == -1) {
-		//        perror("fsync");
-		// Handle error
-		//    }
-
-		if (FLUSH_SIZE > 1 && doSort && HASHSORT)
+		if (FLUSH_SIZE > 1 && do_sort && HASHSORT) // Check if we need to perform an external sort based on flush size and sorting flags
 		{
-			// double reading_time, sorting_time, writing_time, total_time;
-			// struct timeval start_time, end_time, start_all, end_all;
-			// long long elapsed;
-			int EXPECTED_BUCKETS_SORTED = NUM_BUCKETS;
-			// gettimeofday(&start_all, NULL);
+			int EXPECTED_BUCKETS_SORTED = NUM_BUCKETS; // Total number of buckets expected to be sorted
 			if (DEBUG)
 				printf("external sort started, expecting %llu flushes for %d buckets...\n", FLUSH_SIZE, NUM_BUCKETS);
 
-			if (DEBUG)
+			if (DEBUG) // Print expected sorting parameters for debugging
 			{
 				printf("EXPECTED_BUCKETS_SORTED=%d\n", EXPECTED_BUCKETS_SORTED);
 				printf("FLUSH_SIZE=%llu\n", FLUSH_SIZE);
@@ -2556,11 +2488,11 @@ int main(int argc, char *argv[])
 			}
 
 			// Allocate memory for num_threads_sort bucket
-			// Bucket bucket;
 			if (DEBUG)
 				printf("trying to allocate 1: %lu bytes memory...\n", num_threads_sort * sizeof(Bucket));
-			Bucket *buckets = malloc(num_threads_sort * sizeof(Bucket));
-			if (buckets == NULL)
+
+			Bucket *buckets = malloc(num_threads_sort * sizeof(Bucket)); // Allocate memory for the buckets
+			if (buckets == NULL)										 // Check for allocation failure
 			{
 				perror("Memory allocation failed 3");
 				return EXIT_FAILURE;
@@ -2569,16 +2501,18 @@ int main(int argc, char *argv[])
 			if (DEBUG)
 				print_free_memory();
 
-			// initialize state
+			// initialize state of each bucket
 			if (DEBUG)
 				printf("trying to allocate 2: %lu bytes memory...\n", num_threads_sort * BUCKET_SIZE * sizeof(MemoRecord));
-			for (int i = 0; i < num_threads_sort; ++i)
+
+			for (int i = 0; i < num_threads_sort; ++i) // Loop to initialize each bucket
 			{
 				if (DEBUG)
 					printf("trying to allocate 2:%d: %lu bytes memory...\n", i, BUCKET_SIZE * sizeof(MemoRecord));
-				buckets[i].count = BUCKET_SIZE;
-				buckets[i].records = malloc(BUCKET_SIZE * sizeof(MemoRecord));
-				if (buckets[i].records == NULL)
+
+				buckets[i].count = BUCKET_SIZE;								   // Set the initial count of records in the bucket
+				buckets[i].records = malloc(BUCKET_SIZE * sizeof(MemoRecord)); // Allocate memory for records in each bucket
+				if (buckets[i].records == NULL)								   // Check for allocation failure
 				{
 					printf("Memory allocation failed for %lu bytes\n", BUCKET_SIZE * sizeof(MemoRecord));
 					close(fd);
@@ -2591,7 +2525,8 @@ int main(int argc, char *argv[])
 
 			if (DEBUG)
 				printf("trying to allocate 3: %lu bytes memory...\n", num_threads_sort * sizeof(ThreadArgs));
-			ThreadArgs *args = malloc(num_threads_sort * sizeof(ThreadArgs));
+
+			ThreadArgs *args = malloc(num_threads_sort * sizeof(ThreadArgs)); // Allocate memory for thread arguments
 			if (args == NULL)
 			{
 				perror("Failed to allocate memory for args");
@@ -2599,15 +2534,17 @@ int main(int argc, char *argv[])
 			}
 			if (DEBUG)
 				print_free_memory();
+
 			if (DEBUG)
 				printf("trying to allocate 4: %lu bytes memory...\n", num_threads_sort * sizeof(pthread_t));
-			pthread_t *sort_threads = malloc(num_threads_sort * sizeof(pthread_t));
 
+			pthread_t *sort_threads = malloc(num_threads_sort * sizeof(pthread_t)); // Allocate memory for thread handles
 			if (sort_threads == NULL)
 			{
 				perror("Failed to allocate memory for sort threads");
 				return EXIT_FAILURE;
 			}
+
 			if (DEBUG)
 				print_free_memory();
 
@@ -2615,20 +2552,17 @@ int main(int argc, char *argv[])
 			// Read each bucket from the file, sort its contents, and write it back to the file
 			// not sure why i < NUM_BUCKETS-1 is needed
 			// need to break up buckets into smaller pieces
-			// Initialize the semaphore with the maximum number of threads allowed
-			// sem_init(&semaphore_io, 0, num_threads_io);
-			// Create a named semaphore
-			// semaphore_io = sem_open("/my_semaphore", O_CREAT, 0644, num_threads_io);
 			if (DEBUG)
 				printf("before semaphore...\n");
-			semaphore_init(&semaphore_io, num_threads_io);
+
+			semaphore_init(&semaphore_io, num_threads_io); // Initialize semaphore for controlling IO threads
 			if (DEBUG)
 				printf("after semaphore...\n");
 
 			if (DEBUG)
 				print_free_memory();
 
-			for (unsigned long long i = 0; i < NUM_BUCKETS; i = i + num_threads_sort)
+			for (unsigned long long i = 0; i < NUM_BUCKETS; i = i + num_threads_sort) // Loop through buckets in increments of threads
 			{
 				if (DEBUG)
 					printf("inside for loop %llu...\n", i);
@@ -2638,23 +2572,21 @@ int main(int argc, char *argv[])
 
 				if (DEBUG)
 					printf("processing bucket i=%llu\n", i);
-				// Seek to the beginning of the bucket
 
+				// Start threads to read buckets from the file
 				if (DEBUG)
 					printf("starting reading threads...\n");
-				for (int b = 0; b < num_threads_sort; b++)
-				{
 
-					// start threads to sort
-					//  Create threads
-					//  for (int i = 0; i < NUM_THREADS; ++i) {
+				for (int b = 0; b < num_threads_sort; b++) // Loop to create reading threads
+				{
+					// Set up arguments for each thread
 					args[b].buckets = buckets;
-					args[b].threadID = b; // Assigning a sample value to 'test'
+					args[b].thread_id = b; // Assign thread ID
 					args[b].num_buckets_to_process = num_threads_sort;
 					args[b].offset = (i + b) * sizeof(MemoRecord) * BUCKET_SIZE;
 					args[b].fd = fd;
 
-					int status = pthread_create(&sort_threads[b], NULL, read_bucket, &args[b]);
+					int status = pthread_create(&sort_threads[b], NULL, read_bucket, &args[b]); // Create reading thread
 
 					if (status != 0)
 					{
@@ -2665,7 +2597,8 @@ int main(int argc, char *argv[])
 
 				if (DEBUG)
 					printf("waiting for reading threads...\n");
-				// Wait for threads to finish
+
+				// Wait for reading threads to finish
 				for (int b = 0; b < num_threads_sort; b++)
 				{
 					void *thread_return_value;
@@ -2686,20 +2619,18 @@ int main(int argc, char *argv[])
 
 				if (DEBUG)
 					printf("starting sort threads...\n");
+
+				// Start threads to sort the buckets
 				for (int b = 0; b < num_threads_sort; b++)
 				{
-
-					// start threads to sort
-					//  Create threads
-					//  for (int i = 0; i < NUM_THREADS; ++i) {
+					// Set up arguments for each sorting thread
 					args[b].buckets = buckets;
-					args[b].threadID = b; // Assigning a sample value to 'test'
+					args[b].thread_id = b; // Assign thread ID
 					args[b].num_buckets_to_process = num_threads_sort;
 					args[b].offset = 0;
 					args[b].fd = -1;
 
-					int status = pthread_create(&sort_threads[b], NULL, sort_bucket, &args[b]);
-
+					int status = pthread_create(&sort_threads[b], NULL, sort_bucket, &args[b]); // Create sorting thread
 					if (status != 0)
 					{
 						perror("pthread_create sort");
@@ -2710,7 +2641,7 @@ int main(int argc, char *argv[])
 				if (DEBUG)
 					printf("waiting for sort threads...\n");
 
-				// Wait for threads to finish
+				// Wait for sorting threads to finish
 				for (int b = 0; b < num_threads_sort; b++)
 				{
 					void *thread_return_value;
@@ -2731,20 +2662,17 @@ int main(int argc, char *argv[])
 
 				if (DEBUG)
 					printf("starting writing threads...\n");
+				// Start threads to write sorted buckets back to the file
 				for (int b = 0; b < num_threads_sort; b++)
 				{
-
-					// start threads to sort
-					//  Create threads
-					//  for (int i = 0; i < NUM_THREADS; ++i) {
+					// Set up arguments for each writing thread
 					args[b].buckets = buckets;
-					args[b].threadID = b; // Assigning a sample value to 'test'
+					args[b].thread_id = b; // Assign thread ID
 					args[b].num_buckets_to_process = num_threads_sort;
 					args[b].offset = (i + b) * sizeof(MemoRecord) * BUCKET_SIZE;
 					args[b].fd = fd;
 
-					int status = pthread_create(&sort_threads[b], NULL, write_bucket, &args[b]);
-
+					int status = pthread_create(&sort_threads[b], NULL, write_bucket, &args[b]); // Create writing thread
 					if (status != 0)
 					{
 						perror("pthread_create write_bucket");
@@ -2755,7 +2683,7 @@ int main(int argc, char *argv[])
 				if (DEBUG)
 					printf("waiting for writing threads...\n");
 
-				// Wait for threads to finish
+				// Wait for writing threads to finish
 				for (int b = 0; b < num_threads_sort; b++)
 				{
 					void *thread_return_value;
@@ -2774,38 +2702,30 @@ int main(int argc, char *argv[])
 					}
 				}
 
-				// gettimeofday(&end_time, NULL);
-				// elapsed = (end_time.tv_sec - start_time.tv_sec) * 1000000LL +
-				//                      (end_time.tv_usec - start_time.tv_usec);
+				elapsed_time = get_timer(&timer);
 
-				elapsedTime = getTimer(&timer);
-
-				if (elapsedTime > last_progress_update + 1)
+				if (elapsed_time > last_progress_update + 1)
 				{
-					double elapsed_time_since_last_progress_update = elapsedTime - last_progress_update;
+					// double elapsed_time_since_last_progress_update = elapsed_time - last_progress_update;
 
 					int totalBucketsSorted = i; // i*NUM_THREADS;
 					float perc_done = totalBucketsSorted * 100.0 / EXPECTED_BUCKETS_SORTED;
-					float eta = (elapsedTime - sort_start) / (perc_done / 100.0) - (elapsedTime - sort_start);
-					// float diskSize = NUM_BUCKETS * BUCKET_SIZE * FLUSH_SIZE * sizeof(MemoRecord) / (1024 * 1024);
-					float diskSize = FILESIZE_byte / (1024 * 1024);
-					float throughput_MB = diskSize * perc_done * 1.0 / 100.0 / (elapsedTime - sort_start);
-					float throughput_MB_latest = (((i - last_progress_i) * BUCKET_SIZE * sizeof(MemoRecord) * 1.0) / (elapsedTime - last_progress_update)) / (1024 * 1024);
+					float eta = (elapsed_time - sort_start) / (perc_done / 100.0) - (elapsed_time - sort_start);
+					// float disk_size = FILESIZE_byte / (1024 * 1024);
+					// float throughput_MB = disk_size * perc_done * 1.0 / 100.0 / (elapsed_time - sort_start);
+					float throughput_MB_latest = (((i - last_progress_i) * BUCKET_SIZE * sizeof(MemoRecord) * 1.0) / (elapsed_time - last_progress_update)) / (1024 * 1024);
 					if (DEBUG)
-						printf("%llu %llu %d %llu %lu %f %f\n", i, last_progress_i, BUCKET_SIZE, FLUSH_SIZE, sizeof(MemoRecord), elapsedTime, last_progress_update);
+						printf("%llu %llu %d %llu %lu %f %f\n", i, last_progress_i, BUCKET_SIZE, FLUSH_SIZE, sizeof(MemoRecord), elapsed_time, last_progress_update);
 					float progress = perc_done;
-					// double elapsed_time = elapsed;
 					float remaining_time = eta;
-					// printf("Buckets sorted : %d in %lld sec %.2f%% ETA %lf sec => %.2f MB/sec\n", i*NUM_THREADS, elapsed, perc_done, eta, throughput_MB);
 					if (benchmark == false)
-						printf("[%.0lf][SORT]: %.2lf%% completed, ETA %.1lf seconds, %llu/%d flushes, %.1lf MB/sec\n", elapsedTime, progress, remaining_time, i, NUM_BUCKETS, throughput_MB_latest);
+						printf("[%.0lf][SORT]: %.2lf%% completed, ETA %.1lf seconds, %llu/%d flushes, %.1lf MB/sec\n", elapsed_time, progress, remaining_time, i, NUM_BUCKETS, throughput_MB_latest);
 
 					last_progress_i = i;
 
-					last_progress_update = elapsedTime;
+					last_progress_update = elapsed_time;
 				}
-			}
-			// end of for loop
+			} // end of for loop
 
 			// Destroy the semaphore
 			pthread_mutex_destroy(&semaphore_io.mutex);
@@ -2819,7 +2739,9 @@ int main(int argc, char *argv[])
 			}
 			free(buckets); // Free the memory allocated for the array of buckets
 
-			// free(bucket.records);
+			// TODO: free memory for thread data structure
+			// free(args);	// Free the memory allocated for the thread arguments
+			// free(sort_threads);
 		}
 		else
 		{
@@ -2828,31 +2750,26 @@ int main(int argc, char *argv[])
 					printf("in-memory sort completed!\n");
 		}
 
-		elapsedTime = getTimer(&timer);
+		elapsed_time = get_timer(&timer);
+		elapsed_time_sort = elapsed_time - elapsed_time_hash_gen;
 
-		elapsedTimeSort = elapsedTime - elapsedTimeHashGen;
-
-		// make sure everything is flushed to disk before continuing to sort
-		// maybe enable, doesn't seem to be needed
-		// Flush data to disk
+		// Ensure that all data is flushed to disk before continuing
+		// This section may be commented out if flushing is not needed
 		if (benchmark == false)
-			// printf("flushing all writes to disk...\n");
-
-			printf("[%.0lf][FLUSH]: 0.00%% completed, ETA 0.0 seconds, 0/0 flushes, 0.0 MB/sec\n", elapsedTime);
+			// printf("flushing all writes to disk...\n");			// Optionally print flushing status
+			printf("[%.0lf][FLUSH]: 0.00%% completed, ETA 0.0 seconds, 0/0 flushes, 0.0 MB/sec\n", elapsed_time); // Print initial flush progress (0% completed)
 
 		if (fsync(fd) == -1)
 		{
 			perror("fsync");
-			// Handle error
 		}
 
 		close(fd);
 
-		elapsedTime = getTimer(&timer);
+		elapsed_time = get_timer(&timer);
+		elapsed_time_sync = elapsed_time - elapsed_time_hash_gen - elapsed_time_sort;
 
-		elapsedTimeSync = elapsedTime - elapsedTimeHashGen - elapsedTimeSort;
-
-		// final compression by stripping HASH from record and saving it to the HDD, also cleanup
+		// Final compression by stripping the hash from each record and saving it to disk, also includes cleanup
 		if (FILENAME_FINAL != NULL)
 		{
 			if (strip_hash(timer, benchmark, FILENAME, FILENAME_FINAL) == 0)
@@ -2861,10 +2778,10 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		elapsedTime = getTimer(&timer);
+		elapsed_time = get_timer(&timer);
+		elapsed_time_compress = elapsed_time - elapsed_time_hash_gen - elapsed_time_sort - elapsed_time_sync;
 
-		elapsedTimeCompress = elapsedTime - elapsedTimeHashGen - elapsedTimeSort - elapsedTimeSync;
-
+		// Determine the record size based on whether a final filename is provided
 		int record_size = 0;
 		if (FILENAME_FINAL == NULL)
 		{
@@ -2877,21 +2794,19 @@ int main(int argc, char *argv[])
 		}
 
 		// Calculate hashes per second
-		double hashes_per_second = NUM_ENTRIES / elapsedTime;
+		double hashes_per_second = NUM_ENTRIES / elapsed_time;
 
+		// Calculate final file size in megabytes
 		long long FILESIZE_FINAL = record_size * NUM_ENTRIES / (1024 * 1024);
 
 		// Calculate bytes per second
-		double bytes_per_second = record_size * NUM_ENTRIES / elapsedTime;
+		double bytes_per_second = record_size * NUM_ENTRIES / elapsed_time;
 
 		if (benchmark == false)
-			printf("[%.0lf][FINISHED]: 100.00%% completed in %.1lf seconds, %lld MB vault in %s, %.2f MH/s, Effective Throughput %.2f MB/s\n", elapsedTime, elapsedTime, FILESIZE_FINAL, FILENAME_FINAL, hashes_per_second / 1000000.0, bytes_per_second * 1.0 / (1024 * 1024));
+			printf("[%.0lf][FINISHED]: 100.00%% completed in %.1lf seconds, %lld MB vault in %s, %.2f MH/s, Effective Throughput %.2f MB/s\n", elapsed_time, elapsed_time, FILESIZE_FINAL, FILENAME_FINAL, hashes_per_second / 1000000.0, bytes_per_second * 1.0 / (1024 * 1024));
 
-		// printf("Completed %lld MB vault %s in %.2lf seconds : %.2f MH/s %.2f MB/s\n", FILESIZE_FINAL, FILENAME_FINAL, elapsedTime, hashes_per_second/1000000.0, bytes_per_second*1.0/(1024*1024));
 		else
-			printf("%.3lf,%.3lf,%.3lf,%.3lf,%.3lf\n", elapsedTimeHashGen, elapsedTimeSort, elapsedTimeSync, elapsedTimeCompress, elapsedTime);
-		// printf("MH/s: %.2f\n", );
-		// printf("MB/s: %.2f\n", );
+			printf("%.3lf,%.3lf,%.3lf,%.3lf,%.3lf\n", elapsed_time_hash_gen, elapsed_time_sort, elapsed_time_sync, elapsed_time_compress, elapsed_time);
 
 		return 0;
 	}

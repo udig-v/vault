@@ -1,6 +1,6 @@
 //make a benchmark option that generates hashes without sorting/storing
 #include "vault.h"
-#include "parallel_mergesort.c"
+// #include "parallel_mergesort.c"
 
 
 /*

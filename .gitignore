@@ -5,3 +5,8 @@ benchmark/vault.memo.config
 .venv
 benchmark/vault_csv
 benchmark/vault_plot
+memo.vault
+memo.vault.config
+memo.vault.tmp.config
+vault
+

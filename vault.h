@@ -129,7 +129,7 @@ typedef struct
     int num_buckets_to_process;
     unsigned long long offset;
     int fd;
-    int threadID;
+    int thread_id;
 } ThreadArgs;
 
 typedef struct
