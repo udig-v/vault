@@ -96,7 +96,7 @@ void insert_batch(struct CircularArray *circular_array, MemoRecord values[BATCH_
 	if (DEBUG)
 		printf("insert_batch(): Insert values\n");
 	// Insert values
-	for (int i = 0; i < BATCH_SIZE; i++)
+	for (size_t i = 0; i < BATCH_SIZE; i++)
 	{
 		memcpy(&circular_array->array[circular_array->head], &values[i], sizeof(MemoRecord));
 		circular_array->head = (circular_array->head + 1) % HASHGEN_THREADS_BUFFER;
@@ -123,7 +123,7 @@ void remove_batch(struct CircularArray *circular_array, MemoRecord *result)
 	}
 
 	// Remove values
-	for (int i = 0; i < BATCH_SIZE; i++)
+	for (size_t i = 0; i < BATCH_SIZE; i++)
 	{
 		memcpy(&result[i], &circular_array->array[circular_array->tail], sizeof(MemoRecord));
 		circular_array->tail = (circular_array->tail + 1) % HASHGEN_THREADS_BUFFER;
@@ -176,10 +176,10 @@ void *array_generation_thread(void *arg)
 			printf("array_generation_thread(), inside while loop %llu...\n", i);
 
 		// Generate a batch of hashes
-		for (long long j = 0; j < BATCH_SIZE; j++)
+		for (size_t j = 0; j < BATCH_SIZE; j++)
 		{
 			if (DEBUG)
-				printf("array_generation_thread(), inside for loop %llu...\n", j);
+				printf("array_generation_thread(), inside for loop %lu...\n", j);
 
 			hash_index = (long long)(NUM_HASHES_PER_THREAD * data->thread_id + i + j); // Calculate the hash index based on the thread ID and current iteration
 			generate_blake3(&batch[j], hash_index);									   // Generate a hash using the calculated index
@@ -518,21 +518,21 @@ void remove_file(const char *filename)
 void write_bucket_to_disk(const Bucket *bucket, int fd, off_t offset)
 {
 	if (DEBUG)
-		printf("write_bucket_to_disk(): %lld %lu %d %lld %zu\n", offset, sizeof(MemoRecord), BUCKET_SIZE, WRITE_SIZE, bucket->flush);
+		printf("write_bucket_to_disk(): %ld %lu %d %lld %zu\n", offset, sizeof(MemoRecord), BUCKET_SIZE, WRITE_SIZE, bucket->flush);
 	if (DEBUG)
 		printf("write_bucket_to_disk(): %lld\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush);
 	if (lseek(fd, offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, SEEK_SET) < 0)
 	{
-		printf("write_bucket_to_disk(): Error seeking in file at offset %llu; more details: %llu %llu %lu %lld %zu\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, offset, FLUSH_SIZE, sizeof(MemoRecord), WRITE_SIZE, bucket->flush);
+		printf("write_bucket_to_disk(): Error seeking in file at offset %llu; more details: %lu %llu %lu %lld %zu\n", offset * sizeof(MemoRecord) * BUCKET_SIZE + WRITE_SIZE * bucket->flush, offset, FLUSH_SIZE, sizeof(MemoRecord), WRITE_SIZE, bucket->flush);
 		close(fd);
 		exit(EXIT_FAILURE);
 	}
 
-	unsigned long long bytes_written = write(fd, bucket->records, sizeof(MemoRecord) * bucket->count);
+	long long bytes_written = write(fd, bucket->records, sizeof(MemoRecord) * bucket->count);
 	if (bytes_written < 0)
 	{
 		// perror("Error writing to file");
-		printf("Error writing bucket at offset %llu to file; bytes written %llu when it expected %lu\n", offset, bytes_written, sizeof(MemoRecord) * bucket->count);
+		printf("Error writing bucket at offset %lu to file; bytes written %llu when it expected %lu\n", offset, bytes_written, sizeof(MemoRecord) * bucket->count);
 		close(fd);
 		exit(EXIT_FAILURE);
 	}
@@ -584,14 +584,14 @@ off_t byte_array_to_unsigned_int_big_endian(const uint8_t *byte_array, int b)
 	{
 		result |= (uint32_t)byte_array[i] << ((byteIndex - i - 1) * 8);
 	}
-	printf("byte_array_to_unsigned_int_big_endian(): result1=%lld\n", result);
+	printf("byte_array_to_unsigned_int_big_endian(): result1=%ld\n", result);
 
 	// Extract the remaining bits
 	if (bitOffset > 0)
 	{
 		result |= (uint32_t)(byte_array[byteIndex] >> (8 - bitOffset));
 	}
-	printf("byte_array_to_unsigned_int_big_endian(): result2=%lld\n", result);
+	printf("byte_array_to_unsigned_int_big_endian(): result2=%ld\n", result);
 
 	return result;
 }
@@ -612,7 +612,7 @@ off_t binary_byte_array_to_ull(const uint8_t *byte_array, size_t array_size, int
 		}
 	}
 	if (DEBUG)
-		printf("binary_byte_array_to_ull(): result=%lld\n", result);
+		printf("binary_byte_array_to_ull(): result=%ld\n", result);
 	return result;
 }
 
@@ -621,7 +621,7 @@ off_t get_bucket_index(const uint8_t *byte_array, int b)
 	off_t result = 0;
 	result = binary_byte_array_to_ull(byte_array, HASH_SIZE, b);
 	if (DEBUG)
-		printf("get_bucket_index(): %lld %d\n", result, b);
+		printf("get_bucket_index(): %ld %d\n", result, b);
 
 	// printf(" : %lld\n",result);
 	return result;
@@ -676,27 +676,27 @@ void print_file(const char *filename, int num_records)
 	MemoRecord number;
 	// uint8_t array[16];
 
-	unsigned long long records_printed = 0;
+	long long records_printed = 0;
 
 	while (records_printed < num_records && fread(&number, sizeof(MemoRecord), 1, file) == 1)
 	{
 		// Interpret nonce as unsigned long long
 		unsigned long long nonce_value = 0;
-		for (int i = 0; i < sizeof(number.nonce); i++)
+		for (size_t i = 0; i < sizeof(number.nonce); i++)
 		{
 			nonce_value |= (unsigned long long)number.nonce[i] << (i * 8);
 		}
 
 		// Print hash
 		printf("[%llu] Hash: ", records_printed * sizeof(MemoRecord));
-		for (int i = 0; i < sizeof(number.hash); i++)
+		for (size_t i = 0; i < sizeof(number.hash); i++)
 		{
 			printf("%02x", number.hash[i]);
 		}
 		printf(" : ");
 
 		// Print nonce
-		for (int i = 0; i < sizeof(number.nonce); i++)
+		for (size_t i = 0; i < sizeof(number.nonce); i++)
 		{
 			printf("%02x", number.nonce[i]);
 		}
@@ -726,34 +726,34 @@ void print_file_tail(const char *filename, int num_records)
 
 	if (fseek(file, offset, SEEK_SET) < 0)
 	{
-		printf("print_file_tail(): Error seeking in file at offset %llu\n", offset);
+		printf("print_file_tail(): Error seeking in file at offset %lu\n", offset);
 		fclose(file);
 		exit(EXIT_FAILURE);
 	}
 
 	MemoRecord number;
 
-	unsigned long long records_printed = 0;
+	long long records_printed = 0;
 
 	while (records_printed < num_records && fread(&number, sizeof(MemoRecord), 1, file) == 1)
 	{
 		// Interpret nonce as unsigned long long
 		unsigned long long nonce_value = 0;
-		for (int i = 0; i < sizeof(number.nonce); i++)
+		for (size_t i = 0; i < sizeof(number.nonce); i++)
 		{
 			nonce_value |= (unsigned long long)number.nonce[i] << (i * 8);
 		}
 
 		// Print hash
 		printf("[%llu] Hash: ", offset + records_printed * sizeof(MemoRecord));
-		for (int i = 0; i < sizeof(number.hash); i++)
+		for (size_t i = 0; i < sizeof(number.hash); i++)
 		{
 			printf("%02x", number.hash[i]);
 		}
 		printf(" : ");
 
 		// Print nonce
-		for (int i = 0; i < sizeof(number.nonce); i++)
+		for (size_t i = 0; i < sizeof(number.nonce); i++)
 		{
 			printf("%02x", number.nonce[i]);
 		}
@@ -781,7 +781,7 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 	off_t bucket_index = get_bucket_index(target_hash, PREFIX_SIZE);
 	// int bucket_index = (target_hash[0] << 8) | target_hash[1];
 	if (DEBUG)
-		printf("bucket_index=%lld\n", bucket_index);
+		printf("bucket_index=%ld\n", bucket_index);
 
 	// filesize
 	long long FILESIZE = filesize;
@@ -802,10 +802,10 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 	// left and right are record numbers, not byte offsets
 	off_t left = bucket_index * BUCKET_SIZE;
 	if (DEBUG)
-		printf("left=%lld\n", left);
+		printf("left=%ld\n", left);
 	off_t right = (bucket_index + 1) * BUCKET_SIZE - 1;
 	if (DEBUG)
-		printf("right=%lld\n", right);
+		printf("right=%ld\n", right);
 
 	off_t middle;
 	MemoRecord number;
@@ -817,7 +817,7 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 	{
 		middle = left + (right - left) / 2;
 		if (DEBUG)
-			printf("left=%lld middle=%lld right=%lld\n", left, middle, right);
+			printf("left=%ld middle=%ld right=%ld\n", left, middle, right);
 
 		// Increment seek count
 		(*seek_count)++;
@@ -825,11 +825,11 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 		//	printf("seek_count=%lld \n",seek_count);
 
 		if (DEBUG)
-			printf("lseek=%lld %lu\n", middle * sizeof(MemoRecord), sizeof(MemoRecord));
+			printf("lseek=%ld %lu\n", middle * sizeof(MemoRecord), sizeof(MemoRecord));
 		// Seek to the middle position
 		if (lseek(file_descriptor, middle * sizeof(MemoRecord), SEEK_SET) < 0)
 		{
-			printf("binary_search(): Error seeking in file at offset %llu\n", middle * sizeof(MemoRecord));
+			printf("binary_search(): Error seeking in file at offset %lu\n", middle * sizeof(MemoRecord));
 			exit(EXIT_FAILURE);
 		}
 
@@ -857,7 +857,7 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 			printf("memcmp()=%d\n", cmp);
 			printf("nonce=");
 			// Print nonce
-			for (int i = 0; i < sizeof(number.nonce); i++)
+			for (size_t i = 0; i < sizeof(number.nonce); i++)
 			{
 				printf("%02x", number.nonce[i]);
 			}
@@ -886,7 +886,7 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 		// Seek to the left position
 		if (lseek(file_descriptor, left * sizeof(MemoRecord), SEEK_SET) < 0)
 		{
-			printf("binary_search(2): Error seeking in file at offset %llu\n", left * sizeof(MemoRecord));
+			printf("binary_search(2): Error seeking in file at offset %lu\n", left * sizeof(MemoRecord));
 			exit(EXIT_FAILURE);
 		}
 
@@ -912,6 +912,55 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 	}
 
 	return -1; // Hash not found
+}
+
+int generalized_search(const uint8_t *target_hash, size_t target_length, int fd,
+					   long long filesize, int *seek_count, bool compressed)
+{
+	// Determine bucket based on prefix
+	off_t bucket_index = get_bucket_index(target_hash, PREFIX_SIZE);
+
+	if (compressed)
+	{
+		// Compressed Case: Only nonces stored
+		// Calculate the range for the target bucket
+		off_t left = bucket_index * BUCKET_SIZE;
+		off_t right = (bucket_index + 1) * BUCKET_SIZE - 1;
+
+		// Perform a brute-force search within the range
+		for (off_t i = left; i <= right; i++)
+		{
+			MemoRecord record;
+			lseek(fd, i * sizeof(record.nonce), SEEK_SET);
+			ssize_t bytes_read = read(fd, &record.nonce, sizeof(record.nonce));
+			if (bytes_read != sizeof(record.nonce))
+			{
+				perror("Error reading from file");
+				close(fd);
+				return -1;
+			}
+
+			// Convert nonce into an integer to regenerate the hash
+			unsigned long long nonce_value = 0;
+			for (size_t i = 0; i < sizeof(record.nonce); i++)
+			{
+				nonce_value |= (unsigned long long)record.nonce[i] << (i * 8);
+			}
+
+			// Regenerate the hash from nonce
+			generate_blake3(&record, nonce_value);
+			int cmp = memcmp(target_hash, record.hash, target_length);
+
+			if (cmp == 0)
+				return i; // Hash found
+		}
+		return -1; // Hash not found
+	}
+	else
+	{
+		// Uncompressed Case: Regular Binary Search
+		return binary_search(target_hash, target_length, fd, filesize, seek_count, false);
+	}
 }
 
 uint8_t *hex_string_to_byte_array(const char *hex_string, uint8_t *byte_array, size_t byte_array_size)
@@ -951,7 +1000,7 @@ unsigned long long byte_array_to_long_long(const uint8_t *byte_array, size_t len
 
 void long_long_to_byte_array(unsigned long long value, uint8_t *byte_array, size_t length)
 {
-	for (size_t i = length - 1; i >= 0; --i)
+	for (int i = length - 1; i >= 0; --i)
 	{
 		byte_array[i] = value & 0xFF;
 		value >>= 8;
@@ -1025,7 +1074,7 @@ ssize_t read_chunk(int fd, char *buffer, off_t offset, size_t chunkSize)
 // Function to verify if the records in the buffer are sorted
 int verify_sorted(char *buffer, size_t bytes_read)
 {
-	int i;
+	size_t i;
 
 	// Iterate over the buffer starting from the second record
 	for (i = RECORD_SIZE; i < bytes_read; i += RECORD_SIZE)
@@ -1048,7 +1097,7 @@ int verify_sorted(char *buffer, size_t bytes_read)
 // Function to verify if the final compressed file is sorted
 int verify_sorted_compressed(char *buffer, size_t bytes_read)
 {
-	int i;
+	size_t i;
 	uint8_t previous_hash[HASH_SIZE];
 
 	for (i = 0; i < bytes_read; i += NONCE_SIZE)
@@ -1114,7 +1163,7 @@ void print_help()
 	printf("  -z <bool> turns sort on with true, off with false; default is on \n");
 	printf("  -b <num_records>: verify hashes as correct BLAKE3 hashes \n");
 	printf("  -v <bool> verify hashes from file, off with false, on with true; default is off \n");
-	printf("  -V <bool> verify compressed hashes from file, off with false, on with true; default is off \n");
+	printf("  -V <bool> verify compressed hashes from file, off with false, on with true; default is off, must specify -f <filename> and k <num_records> \n");
 	printf("  -w <bool>: benchmark; default is off\n");
 	printf("  -h: Display this help message\n");
 }
@@ -1182,7 +1231,7 @@ void *read_bucket(void *arg)
 
 			long long bytes_read = 0;
 			bytes_read = pread(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
-			if (bytes_read < 0 || bytes_read != BUCKET_SIZE * sizeof(MemoRecord))
+			if (bytes_read < 0 || bytes_read != (long long int)(BUCKET_SIZE * sizeof(MemoRecord)))
 			{
 				printf("Error reading bucket %d from file at offset %llu; bytes read %llu when it expected %lu\n", b, offset, bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 				close(fd);
@@ -1226,7 +1275,7 @@ void *write_bucket(void *arg)
 
 			long long bytes_read = 0;
 			bytes_read = pwrite(fd, buckets[b].records, BUCKET_SIZE * sizeof(MemoRecord), offset);
-			if (bytes_read < 0 || bytes_read != BUCKET_SIZE * sizeof(MemoRecord))
+			if (bytes_read < 0 || bytes_read != (long long int)(BUCKET_SIZE * sizeof(MemoRecord)))
 			{
 				printf("Error writing bucket %d from file at offset %llu; bytes written %llu when it expected %lu\n", b, offset, bytes_read, BUCKET_SIZE * sizeof(MemoRecord));
 				close(fd);
@@ -1306,7 +1355,7 @@ int main(int argc, char *argv[])
 {
 	Timer timer;
 	double elapsed_time;
-	double elapsed_time_hash_gen;
+	double elapsed_time_hash_gen = 0;
 	double elapsed_time_sort;
 	double elapsed_time_sync;
 	double elapsed_time_compress;
@@ -1614,7 +1663,7 @@ int main(int argc, char *argv[])
 
 	const char *path = FILENAME;
 
-	unsigned long long bytes_free = get_disk_space(path);
+	long long bytes_free = get_disk_space(path);
 	if (bytes_free > 0)
 	{
 		if (DEBUG)
@@ -1849,7 +1898,7 @@ int main(int argc, char *argv[])
 			//  Verify if the records in the buffer are sorted
 			if (!verify_sorted(buffer, bytes_read))
 			{
-				printf("Records are not sorted at %lld offset.\n", offset);
+				printf("Records are not sorted at %ld offset.\n", offset);
 				all_sorted = false;
 				break;
 			}
@@ -1861,12 +1910,12 @@ int main(int argc, char *argv[])
 
 		if (bytes_read == -1)
 		{
-			fprintf(stderr, "Error reading buffer after reading %lld bytes\n", offset);
+			fprintf(stderr, "Error reading buffer after reading %ld bytes\n", offset);
 		}
 
 		// If all records were sorted, print a success message
 		if (all_sorted)
-			printf("Read %lld bytes and found all records are sorted.\n", offset);
+			printf("Read %ld bytes and found all records are sorted.\n", offset);
 
 		// Close the file descriptor
 		close(fd);
@@ -1906,7 +1955,7 @@ int main(int argc, char *argv[])
 			// Verify if the records in the buffer are sorted
 			if (!verify_sorted_compressed(buffer, bytes_read))
 			{
-				printf("Compressed records are not sorted at %lld offset.\n", offset);
+				printf("Compressed records are not sorted at %ld offset.\n", offset);
 				all_sorted = false;
 				break;
 			}
@@ -1917,12 +1966,12 @@ int main(int argc, char *argv[])
 
 		if (bytes_read == -1)
 		{
-			fprintf(stderr, "Error reading buffer after reading %lld bytes\n", offset);
+			fprintf(stderr, "Error reading buffer after reading %ld bytes\n", offset);
 		}
 
 		// If all compressed records were sorted, print a success message
 		if (all_sorted)
-			printf("Read %lld bytes and found all compressed records are sorted.\n", offset);
+			printf("Read %ld bytes and found all compressed records are sorted.\n", offset);
 
 		// Close the file descriptor
 		close(fd);
@@ -1958,13 +2007,16 @@ int main(int argc, char *argv[])
 			perror("Error opening file for reading");
 			return 1;
 		}
-		long long filesize = get_file_size(FILENAME);
 
+		long long filesize = get_file_size(FILENAME);
 		reset_timer(&timer);
 
-		// Perform binary search
+		// Specify whether the hashes are compressed
+		bool is_compressed = true;
+
+		// Perform the generalized search
 		int seek_count = 0;
-		int index = binary_search(target_hash, prefix_length, fd, filesize, &seek_count, false);
+		int index = generalized_search(target_hash, prefix_length, fd, filesize, &seek_count, is_compressed);
 
 		// Get end time
 		elapsed_time = get_timer(&timer);
@@ -1973,21 +2025,53 @@ int main(int argc, char *argv[])
 		{
 			// Hash found
 			MemoRecord found_number;
-			lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-			read(fd, &found_number, sizeof(MemoRecord));
+
+			// if compressed, seek to nonce location only; otherwise, seek to full MemoRecord
+			if (is_compressed)
+			{
+				lseek(fd, index * sizeof(found_number.nonce), SEEK_SET);
+				ssize_t bytes_read = read(fd, &found_number.nonce, sizeof(found_number.nonce));
+				if (bytes_read != sizeof(found_number.nonce))
+				{
+					printf("Error reading nonce from file\n");
+					close(fd);
+					return -1;
+				}
+
+				// Convert nonce into an integer to regenerate the hash
+				unsigned long long nonce_value = 0;
+				for (size_t i = 0; i < sizeof(found_number.nonce); i++)
+				{
+					nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
+				}
+
+				// Regenerate the hash
+				generate_blake3(&found_number, nonce_value);
+			}
+			else
+			{
+				lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
+				ssize_t bytes_read = read(fd, &found_number, sizeof(MemoRecord));
+				if (bytes_read != sizeof(MemoRecord))
+				{
+					printf("Error reading MemoRecord from file\n");
+					close(fd);
+					return -1;
+				}
+			}
 
 			printf("Hash found at index: %d\n", index);
 			printf("Number of lookups: %d\n", seek_count);
 			printf("Hash search: ");
 			print_bytes(byte_array, sizeof(byte_array));
 			printf("/%zu\n", prefix_length);
-			// printf("Prefix length: %zu\n", prefix_length);
+
 			printf("Hash found : ");
 			print_bytes(found_number.hash, sizeof(found_number.hash));
 			printf("\n");
 
 			unsigned long long nonce_value = 0;
-			for (int i = 0; i < sizeof(found_number.nonce); i++)
+			for (size_t i = 0; i < sizeof(found_number.nonce); i++)
 			{
 				nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 			}
@@ -2042,7 +2126,7 @@ int main(int argc, char *argv[])
 
 		reset_timer(&timer);
 
-		for (int search_num = 0; search_num < number_lookups; search_num++)
+		for (size_t search_num = 0; search_num < number_lookups; search_num++)
 		{
 			uint8_t byte_array[HASH_SIZE];
 			for (size_t i = 0; i < HASH_SIZE; ++i)
@@ -2065,7 +2149,13 @@ int main(int argc, char *argv[])
 				// Hash found
 				MemoRecord found_number;
 				lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-				read(fd, &found_number, sizeof(MemoRecord));
+				ssize_t bytes_read = read(fd, &found_number, sizeof(MemoRecord));
+				if (bytes_read != sizeof(MemoRecord))
+				{
+					printf("Error reading MemoRecord from file\n");
+					close(fd);
+					return -1;
+				}
 
 				found++;
 				if (DEBUG)
@@ -2076,7 +2166,7 @@ int main(int argc, char *argv[])
 					printf("\n");
 
 					unsigned long long nonce_value = 0;
-					for (int i = 0; i < sizeof(found_number.nonce); i++)
+					for (size_t i = 0; i < sizeof(found_number.nonce); i++)
 					{
 						nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 					}
@@ -2145,17 +2235,23 @@ int main(int argc, char *argv[])
 
 		reset_timer(&timer);
 
-		for (int search_num = 0; search_num < number_lookups; search_num++)
+		for (size_t search_num = 0; search_num < number_lookups; search_num++)
 		{
 			int index = rand() % num_records_in_file;
 
 			MemoRecord found_number;
 			MemoRecord found_number2;
 			lseek(fd, index * sizeof(MemoRecord), SEEK_SET);
-			read(fd, &found_number, sizeof(MemoRecord));
+			ssize_t bytes_read = read(fd, &found_number, sizeof(MemoRecord));
+			if (bytes_read != sizeof(MemoRecord))
+			{
+				printf("Error reading MemoRecord from file\n");
+				close(fd);
+				return -1;
+			}
 
 			unsigned long long nonce_value = 0;
-			for (int i = 0; i < sizeof(found_number.nonce); i++)
+			for (size_t i = 0; i < sizeof(found_number.nonce); i++)
 			{
 				nonce_value |= (unsigned long long)found_number.nonce[i] << (i * 8);
 			}
@@ -2347,7 +2443,7 @@ int main(int argc, char *argv[])
 					printf("processing batch of size %ld...\n", BATCH_SIZE); // Log the size of the processed batch
 
 				// this sequential loop is probably a bottleneck
-				for (int b = 0; b < BATCH_SIZE; b++)
+				for (size_t b = 0; b < BATCH_SIZE; b++)
 				{
 					// Get the index of the bucket where the current record should be stored
 					off_t bucket_index = get_bucket_index(consumed_array[b].hash, PREFIX_SIZE);
@@ -2355,10 +2451,10 @@ int main(int argc, char *argv[])
 					Bucket *bucket = &buckets[bucket_index]; // Reference the corresponding bucket
 
 					// Check if the bucket has space for more records
-					if (bucket->count < WRITE_SIZE / RECORD_SIZE)
+					if (bucket->count < (size_t)(WRITE_SIZE / RECORD_SIZE))
 					{
 						// Add the current record to the bucket
-						bucket->records[bucket->count++] = (MemoRecord)consumed_array[b];
+						bucket->records[bucket->count++] = consumed_array[b];
 					}
 					else // If the bucket is full
 					{
@@ -2371,7 +2467,7 @@ int main(int argc, char *argv[])
 							if (FLUSH_SIZE == 1)
 							{
 								if (DEBUG)
-									printf("sorting bucket before flush %d...\n", b);
+									printf("sorting bucket before flush %ld...\n", b);
 
 								// Sort the bucket contents if sorting is enabled
 								if (HASHSORT)
@@ -2562,7 +2658,7 @@ int main(int argc, char *argv[])
 			if (DEBUG)
 				print_free_memory();
 
-			for (unsigned long long i = 0; i < NUM_BUCKETS; i = i + num_threads_sort) // Loop through buckets in increments of threads
+			for (unsigned long long i = 0; i < (unsigned long long)NUM_BUCKETS; i = i + num_threads_sort) // Loop through buckets in increments of threads
 			{
 				if (DEBUG)
 					printf("inside for loop %llu...\n", i);
