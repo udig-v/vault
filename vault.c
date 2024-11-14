@@ -623,7 +623,6 @@ off_t get_bucket_index(const uint8_t *byte_array, int b)
 	if (DEBUG)
 		printf("get_bucket_index(): %ld %d\n", result, b);
 
-	// printf(" : %lld\n",result);
 	return result;
 }
 
@@ -779,7 +778,6 @@ int binary_search(const uint8_t *target_hash, size_t target_length, int file_des
 	// should use filesize to determine left and right
 	//  Calculate the bucket index based on the first 2-byte prefix
 	off_t bucket_index = get_bucket_index(target_hash, PREFIX_SIZE);
-	// int bucket_index = (target_hash[0] << 8) | target_hash[1];
 	if (DEBUG)
 		printf("bucket_index=%ld\n", bucket_index);
 
@@ -919,13 +917,37 @@ int generalized_search(const uint8_t *target_hash, size_t target_length, int fd,
 {
 	// Determine bucket based on prefix
 	off_t bucket_index = get_bucket_index(target_hash, PREFIX_SIZE);
+	printf("bucket_index=%ld\n", bucket_index);
+	if (DEBUG)
+		printf("bucket_index=%ld\n", bucket_index);
+
+	// filesize
+	long long FILESIZE = filesize;
+	if (DEBUG)
+		printf("FILESIZE=%lld\n", FILESIZE);
+
+	if (DEBUG)
+		printf("RECORD_SIZE=%d\n", RECORD_SIZE);
+
+	unsigned long long NUM_ENTRIES = FILESIZE / RECORD_SIZE;
+	if (DEBUG)
+		printf("NUM_ENTRIES=%lld\n", NUM_ENTRIES);
+
+	int BUCKET_SIZE = (FILESIZE) / (RECORD_SIZE * NUM_BUCKETS);
+	if (DEBUG)
+		printf("BUCKET_SIZE=%d\n", BUCKET_SIZE);
 
 	if (compressed)
 	{
+		printf("Compressed Case\n");
 		// Compressed Case: Only nonces stored
 		// Calculate the range for the target bucket
 		off_t left = bucket_index * BUCKET_SIZE;
 		off_t right = (bucket_index + 1) * BUCKET_SIZE - 1;
+
+		printf("BUCKET_SIZE=%d\n", BUCKET_SIZE);
+		printf("left=%ld\n", left);
+		printf("right=%ld\n", right);
 
 		// Perform a brute-force search within the range
 		for (off_t i = left; i <= right; i++)
@@ -946,9 +968,11 @@ int generalized_search(const uint8_t *target_hash, size_t target_length, int fd,
 			{
 				nonce_value |= (unsigned long long)record.nonce[i] << (i * 8);
 			}
+			// printf("nonce_value=%llu\n", nonce_value);
 
 			// Regenerate the hash from nonce
 			generate_blake3(&record, nonce_value);
+			// printf("record.hash=");	
 			int cmp = memcmp(target_hash, record.hash, target_length);
 
 			if (cmp == 0)
@@ -1369,7 +1393,8 @@ int main(int argc, char *argv[])
 
 	long long print_records = 0;
 
-	uint8_t byte_array[10];
+	uint8_t *byte_array = NULL;
+	size_t hash_len = 0;
 	uint8_t *target_hash = NULL;
 	size_t prefix_length = 10;
 
@@ -1480,12 +1505,22 @@ int main(int argc, char *argv[])
 					printf("print_records=%lld\n", print_records);
 			break;
 		case 'a':
+			hash_len = strlen(optarg) / 2;
 			// Validate the length of the hash
-			if (strlen(optarg) != 20) // Each byte represented by 2 characters in hexadecimal
+			if (strlen(optarg) % 2 != 0 || strlen(optarg) > 20) // Each byte represented by 2 characters in hexadecimal
 			{
 				printf("Invalid hexadecimal hash format\n");
 				return 1;
 			}
+
+			// Allocate memory for byte_array based on byte_array_len
+			byte_array = malloc(hash_len);
+			if (!byte_array)
+			{
+				printf("Memory allocation failed\n");
+				return 1;
+			}
+
 			// Convert the hexadecimal hash from command-line argument to binary
 			target_hash = hex_string_to_byte_array(optarg, byte_array, sizeof(byte_array));
 			if (target_hash == NULL)
@@ -1497,7 +1532,7 @@ int main(int argc, char *argv[])
 			if (benchmark == false)
 			{
 				printf("Hash_search=");
-				print_bytes(byte_array, sizeof(byte_array));
+				print_bytes(byte_array, hash_len);
 				printf("\n");
 			}
 			break;
@@ -2000,6 +2035,7 @@ int main(int argc, char *argv[])
 	// search hash
 	else if (target_hash != NULL)
 	{
+		printf("Searching for hash\n");
 		// Open file for reading
 		int fd = open(FILENAME, O_RDONLY);
 		if (fd < 0)
@@ -2017,6 +2053,7 @@ int main(int argc, char *argv[])
 		// Perform the generalized search
 		int seek_count = 0;
 		int index = generalized_search(target_hash, prefix_length, fd, filesize, &seek_count, is_compressed);
+		printf("index=%d\n", index);
 
 		// Get end time
 		elapsed_time = get_timer(&timer);
@@ -2088,6 +2125,11 @@ int main(int argc, char *argv[])
 
 		// Close the file
 		close(fd);
+
+		if (byte_array != NULL)
+		{
+			free(byte_array); // Free allocated memory for byte_array before exiting
+		}
 
 		return 0;
 	}
